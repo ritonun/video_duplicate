@@ -1,4 +1,5 @@
 # hashing.py
+import hashlib
 
 from PIL import Image
 
@@ -8,6 +9,13 @@ if not hasattr(Image, "ANTIALIAS"):
 
 
 from videohash import VideoHash
+
+
+def hash_first_1mb(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        h.update(f.read(1024 * 1024))
+    return h.digest()
 
 
 def get_video_phash(filepath):
