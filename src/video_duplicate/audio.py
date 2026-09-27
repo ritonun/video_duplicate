@@ -1,125 +1,123 @@
+# audio .py
+from dataclasses import dataclass
 from functools import lru_cache
 
 import acoustid
 
-# How much audio to fingerprint from each video.
-# fpcalc defaults to 120 seconds, but 30-60 seconds is usually
-# enough for duplicate detection.
-FINGERPRINT_LENGTH = 60
+type Fingerprint = tuple[float, bytes]
 
 
-# Similarity thresholds.
-# These should be tuned with your own videos.
-STRONG_MATCH = 0.90
-LIKELY_MATCH = 0.80
+@dataclass(frozen=True)
+class AcousticConfig:
+    """Configuration for acoustic video comparison"""
+
+    fingerprint_length: int = 60  # how much audio to fingerprint in each videos
+    strong_match_threshold: float = 0.90
+    likely_match_threshold: float = 0.8
+
+
+@dataclass(frozen=True)
+class AcousticResult:
+    """Result of acoustic comparison between two videos"""
+
+    similarity: float  # between 0.0 and 1.0, 1.0 meaning it is the same videos
+    confidence: str
+    same: bool
+    reason: str | None = None
 
 
 @lru_cache(maxsize=1024)
-def acoustic_fingerprint(path):
+def acoustic_fingerprint(path: str, fingerprint_length: int = 60) -> Fingerprint | None:
     """
     Generate a Chromaprint fingerprint locally.
 
-    No AcoustID / internet lookup is performed.
-
-    Returns:
-        (duration, fingerprint)
-    or:
-        None if fingerprinting failed.
+    Returns: (duration, fingerprint) || None if fingerprinting failed
     """
 
     try:
         duration, fingerprint = acoustid.fingerprint_file(
-            path,
-            maxlength=FINGERPRINT_LENGTH,
+            str(path),
+            maxlength=fingerprint_length,
             force_fpcalc=True,
         )
-
-        return duration, fingerprint
-
-    except Exception as e:
-        print(f"Could not fingerprint: {path}")
-        print(f"  Error: {e}")
+    except Exception:
         return None
 
+    if fingerprint is None:
+        return None
 
-def compare_acoustic_fingerprints(fp1, fp2):
-    """
-    Compare two locally generated Chromaprint fingerprints.
+    return float(duration), fingerprint
 
-    Returns a dictionary with the similarity score and decision.
-    """
 
-    result = {
-        "similarity": 0.0,
-        "confidence": "unknown",
-        "same": False,
-        "reason": None,
-    }
+def compare_acoustic_fingerprints(
+    fingerprint1: Fingerprint | None,
+    fingerprint2: Fingerprint | None,
+    *,
+    config: AcousticConfig | None = None,
+) -> AcousticResult:
+    """Compare two locally generated Chromaprint fingerprints."""
 
-    if not fp1:
-        result["reason"] = "Could not fingerprint video 1."
-        return result
+    config = config or AcousticConfig()
 
-    if not fp2:
-        result["reason"] = "Could not fingerprint video 2."
-        return result
+    if fingerprint1 is None:
+        return AcousticResult(
+            similarity=0.0,
+            confidence="unknown",
+            same=False,
+            reason="Could not fingerprint video 1",
+        )
+
+    if fingerprint2 is None:
+        return AcousticResult(
+            similarity=0.0,
+            confidence="unknown",
+            same=False,
+            reason="Could not fingerprint video 2.",
+        )
 
     try:
         similarity = acoustid.compare_fingerprints(
-            fp1,
-            fp2,
+            fingerprint1,
+            fingerprint2,
+        )
+    except Exception as exc:
+        return AcousticResult(
+            similarity=0.0,
+            confidence="unknown",
+            same=False,
+            reason=f"Fingerprint comparison failed: {exc}",
         )
 
-    except Exception as e:
-        result["reason"] = f"Fingerprint comparison failed: {e}"
-        return result
+    if similarity >= config.strong_match_threshold:
+        return AcousticResult(
+            similarity=similarity,
+            confidence="same",
+            same=True,
+        )
+    if similarity >= config.likely_match_threshold:
+        return AcousticResult(
+            similarity=similarity,
+            confidence="likely",
+            same=False,
+        )
 
-    if similarity >= STRONG_MATCH:
-        confidence = "same"
-        same = True
-
-    elif similarity >= LIKELY_MATCH:
-        confidence = "likely"
-        same = False
-
-    else:
-        confidence = "different"
-        same = False
-
-    result.update(
-        {
-            "similarity": similarity,
-            "confidence": confidence,
-            "same": same,
-        }
+    return AcousticResult(
+        similarity=similarity,
+        confidence="different",
+        same=False,
     )
 
-    return result
 
-
-def acoustic_compare(path1, path2):
+def acoustic_compare_two_videos(
+    path1: str, path2: str, *, config: AcousticConfig | None = None
+) -> AcousticResult:
     """
     Fingerprint two videos and compare their audio.
-
-    Everything happens locally.
-    No AcoustID database lookup is performed.
     """
 
-    fingerprint1 = acoustic_fingerprint(path1)
-    fingerprint2 = acoustic_fingerprint(path2)
+    config = config or AcousticConfig()
 
-    return compare_acoustic_fingerprints(
-        fingerprint1,
-        fingerprint2,
-    )
+    fingerprint1 = acoustic_fingerprint(path1, config.fingerprint_length)
+    fingerprint2 = acoustic_fingerprint(path2, config.fingerprint_length)
 
-
-def compare_vids(path1, path2):
-    video1 = path1
-    video2 = path2
-
-    result = acoustic_compare(
-        video1,
-        video2,
-    )
-    return result["similarity"]
+    return compare_acoustic_fingerprints(fingerprint1, fingerprint2, config=config)

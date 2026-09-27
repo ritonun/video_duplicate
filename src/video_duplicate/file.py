@@ -1,7 +1,7 @@
 # file.py
 import os
 
-from video_duplicate import get_duration
+from .utils import get_duration
 
 
 def load_probable_duplicate(path1, path2, tolerance=2.0):
