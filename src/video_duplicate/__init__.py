@@ -1,10 +1,6 @@
 import hashlib
-import json
 import os
 import subprocess
-import tempfile
-
-from videohash import VideoHash
 
 from .audio import compare_vids
 from .hashing import check_if_duplicate_videos

@@ -1,4 +1,5 @@
-import os
+# hashing.py
+
 from PIL import Image
 
 # Compatibility for libraries still using Image.ANTIALIAS

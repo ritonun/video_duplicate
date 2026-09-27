@@ -1,6 +1,6 @@
-import acoustid
 from functools import lru_cache
 
+import acoustid
 
 # How much audio to fingerprint from each video.
 # fpcalc defaults to 120 seconds, but 30-60 seconds is usually
@@ -123,11 +123,3 @@ def compare_vids(path1, path2):
         video2,
     )
     return result["similarity"]
-
-    print(f"ACOUSTIC (length={FINGERPRINT_LENGTH}):")
-    print(f"Similarity: {result['similarity']:.3f}")
-    print(f"Confidence: {result['confidence']}")
-    print(f"Same:       {result['same']}")
-
-    if result["reason"]:
-        print(f"Reason:     {result['reason']}")
