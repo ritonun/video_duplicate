@@ -1,39 +1,88 @@
 # file.py
+
 import os
+from itertools import combinations
+from pathlib import Path
 
 from .utils import get_duration
 
 
-def load_probable_duplicate(path1, path2, tolerance=2.0):
+def load_probable_duplicate(folders: list[str], tolerance=2.0):
+    """Find probable duplicate videos across multiple folders"""
+
+    videos_by_folder = [load_videos_from_folder(folder) for folder in folders]
+    durations = {
+        video: get_duration(video) for videos in videos_by_folder for video in videos
+    }
 
     duplicates = []
 
-    videos1 = load_videos(path1)
-    videos2 = load_videos(path2)
+    for videos1, videos2 in combinations(videos_by_folder, 2):
+        for video1 in videos1:
+            duration1 = durations[video1]
 
-    for video1 in videos1:
-        duration1 = get_duration(video1)
+            for video2 in videos2:
+                duration2 = durations[video2]
 
-        for video2 in videos2:
-            duration2 = get_duration(video2)
-
-            if abs(duration1 - duration2) <= tolerance:
-                duplicates.append([video1, video2])
+                if abs(duration1 - duration2) <= tolerance:
+                    duplicates.append([video1, video2])
 
     return duplicates
 
 
-def load_videos(path: str):
+def load_videos_from_folder(path: str):
+    """From a folder load all videos"""
+
     videos = []
     files = os.listdir(path)
     for file in files:
-        videos.append(os.path.join(path, file))
+        p = Path(file)
+        if p.suffix.lower() in VIDEO_EXTENSIONS:
+            videos.append(os.path.join(path, file))
     return videos
 
 
-def write_to_csv(va, vb, line):
+def write_to_csv(va, vb, line):  # soon to be removed
     full_line = va.split("/")[-1] + ";" + vb.split("/")[-1] + ";" + line
     if not full_line.endswith("\n"):
         full_line += "\n"
     with open("data/result.csv", "a") as f:
         f.write(full_line)
+
+
+VIDEO_EXTENSIONS = {
+    ".3g2",
+    ".3gp",
+    ".asf",
+    ".avi",
+    ".divx",
+    ".dv",
+    ".f4v",
+    ".flv",
+    ".m1v",
+    ".m2p",
+    ".m2t",
+    ".m2ts",
+    ".m2v",
+    ".m4v",
+    ".mkv",
+    ".mod",
+    ".mov",
+    ".mp2",
+    ".mp4",
+    ".mpe",
+    ".mpeg",
+    ".mpg",
+    ".mts",
+    ".mxf",
+    ".ogm",
+    ".ogv",
+    ".qt",
+    ".rm",
+    ".rmvb",
+    ".tod",
+    ".ts",
+    ".vob",
+    ".webm",
+    ".wmv",
+}
