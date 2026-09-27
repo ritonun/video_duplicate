@@ -10,8 +10,7 @@ sudo apt install libchromaprint-tools
 
 ## Usage
 ```python
-
-folders = [Path("path/to/folder1"), Path("path/to/folder2")]
+folders = [Path("data/dup"), Path("data/test")]
 duplicates = load_probable_duplicate(folders, tolerance=2.0)
 print(f"Found {len(duplicates)} duplicates")
 
@@ -23,11 +22,15 @@ for duplicate in duplicates:
         continue
 
     # compare audio between the two video
-    result = acoustic_compare_two_videos(v1, v2)
-    if result.similarity > 0.9:
+    similarity = acoustic_compare_two_videos(v1, v2)
+    if isinstance(similarity, str):
+        print(f"error: {similarity}")
+        continue
+
+    if similarity > 0.9:
         print(f"{v1} & {v2} are duplicate.")
         continue
-    elif result.similarity > 0.8:
+    elif similarity > 0.8:
         print(f"{v1} & {v2} are likely duplicate.")
         continue
 
