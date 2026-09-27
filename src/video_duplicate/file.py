@@ -42,14 +42,6 @@ def load_videos_from_folder(path: str):
     return videos
 
 
-def write_to_csv(va, vb, line):  # soon to be removed
-    full_line = va.split("/")[-1] + ";" + vb.split("/")[-1] + ";" + line
-    if not full_line.endswith("\n"):
-        full_line += "\n"
-    with open("data/result.csv", "a") as f:
-        f.write(full_line)
-
-
 VIDEO_EXTENSIONS = {
     ".3g2",
     ".3gp",
