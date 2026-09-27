@@ -1,13 +1,12 @@
 # file.py
 
-import os
 from itertools import combinations
 from pathlib import Path
 
 from .utils import get_duration
 
 
-def load_probable_duplicate(folders: list[str], tolerance=2.0):
+def load_probable_duplicate(folders: list[Path], tolerance=2.0):
     """Find probable duplicate videos across multiple folders"""
 
     videos_by_folder = [load_videos_from_folder(folder) for folder in folders]
@@ -30,15 +29,15 @@ def load_probable_duplicate(folders: list[str], tolerance=2.0):
     return duplicates
 
 
-def load_videos_from_folder(path: str):
+def load_videos_from_folder(path: Path):
     """From a folder load all videos"""
 
     videos = []
-    files = os.listdir(path)
+    files = list(path.iterdir())
     for file in files:
         p = Path(file)
         if p.suffix.lower() in VIDEO_EXTENSIONS:
-            videos.append(os.path.join(path, file))
+            videos.append(path / file)
     return videos
 
 

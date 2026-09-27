@@ -1,6 +1,7 @@
 # audio .py
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 
 import acoustid
 
@@ -27,7 +28,9 @@ class AcousticResult:
 
 
 @lru_cache(maxsize=1024)
-def acoustic_fingerprint(path: str, fingerprint_length: int = 60) -> Fingerprint | None:
+def acoustic_fingerprint(
+    path: Path | str, fingerprint_length: int = 60
+) -> Fingerprint | None:
     """
     Generate a Chromaprint fingerprint locally.
 
@@ -109,7 +112,7 @@ def compare_acoustic_fingerprints(
 
 
 def acoustic_compare_two_videos(
-    path1: str, path2: str, *, config: AcousticConfig | None = None
+    path1: Path, path2: Path, *, config: AcousticConfig | None = None
 ) -> AcousticResult:
     """
     Fingerprint two videos and compare their audio.

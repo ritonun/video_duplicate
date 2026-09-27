@@ -1,7 +1,8 @@
 import subprocess
+from pathlib import Path
 
 
-def get_duration(path):
+def get_duration(path: Path | str):
     result = subprocess.run(
         [
             "ffprobe",
@@ -11,7 +12,7 @@ def get_duration(path):
             "format=duration",
             "-of",
             "default=noprint_wrappers=1:nokey=1",
-            path,
+            str(path),
         ],
         capture_output=True,
         text=True,
