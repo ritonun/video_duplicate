@@ -11,14 +11,14 @@ if not hasattr(Image, "ANTIALIAS"):
 from videohash import VideoHash
 
 
-def hash_first_1mb(path):
+def hash_first_mb_comparison(path, size=1024 * 1024):
     h = hashlib.sha256()
     with open(path, "rb") as f:
-        h.update(f.read(1024 * 1024))
+        h.update(f.read(size))
     return h.digest()
 
 
-def get_video_phash(filepath):
+def get_video_phash(filepath, frame_interval=2):
     """
     Safely generates a perceptual hash for a video file.
     Returns the hexadecimal hash string, or None if it fails.
@@ -26,7 +26,7 @@ def get_video_phash(filepath):
     try:
         # The library creates temporary directories for frame extraction.
         # It usually cleans them up, but we wrap in a try-except to be safe.
-        vh = VideoHash(filepath, frame_interval=1 / 10)
+        vh = VideoHash(filepath, frame_interval=frame_interval)
         return vh.hash_hex
     except Exception as e:
         print(f"[!] Error hashing {filepath}: {e}")
@@ -51,14 +51,20 @@ def are_videos_duplicates(hash_hex_1, hash_hex_2, tolerance=4):
     return hamming_distance <= tolerance
 
 
-def check_if_duplicate_videos(path1, path2, tolerance=4):
+def check_if_duplicate_videos_phash(path1, path2, tolerance=4, frame_interval=2):
     """
     Takes two video paths, generates their perceptual hashes,
     and returns True if they are duplicates within the given tolerance.
     """
     # 1. Generate hashes for both videos
-    hash1 = get_video_phash(path1)
-    hash2 = get_video_phash(path2)
+    hash1 = get_video_phash(path1, frame_interval=frame_interval)
+    hash2 = get_video_phash(path2, frame_interval=frame_interval)
 
     # 2. Compare the hex strings using the existing function
     return are_videos_duplicates(hash1, hash2, tolerance)
+
+
+def check_if_video_duplicate_quick_hash(path1, path2, size=1024 * 1024):
+    ha = hash_first_mb_comparison(path1, size=size)
+    hb = hash_first_mb_comparison(path2, size=size)
+    return ha == hb
