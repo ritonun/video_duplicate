@@ -37,7 +37,7 @@ def load_videos_from_folder(path: Path):
     for file in files:
         p = Path(file)
         if p.suffix.lower() in VIDEO_EXTENSIONS:
-            videos.append(path / file)
+            videos.append(file)
     return videos
 
 
