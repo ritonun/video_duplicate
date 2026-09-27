@@ -5,7 +5,7 @@ from PIL import Image
 
 # Compatibility for libraries still using Image.ANTIALIAS
 if not hasattr(Image, "ANTIALIAS"):
-    Image.ANTIALIAS = Image.Resampling.LANCZOS
+    Image.ANTIALIAS = Image.Resampling.LANCZOS  # type: ignore
 
 
 from videohash import VideoHash
