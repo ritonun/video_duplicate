@@ -1,17 +1,11 @@
 [project]
 name = "video-duplicate"
-version = "0.1.0"
-description = "Add your description here"
+version = "1.0.0"
+description = "Find duplicate videos across folders"
 readme = "README.md"
-authors = [
-    { name = "ritonun", email = "you@example.com" }
-]
+authors = [{ name = "ritonun", email = "you@example.com" }]
 requires-python = ">=3.13"
-dependencies = [
-    "pillow>=12.3.0",
-    "pyacoustid>=1.3.1",
-    "videohash>=3.0.1",
-]
+dependencies = ["pillow>=12.3.0", "pyacoustid>=1.3.1", "videohash>=3.0.1"]
 
 [project.scripts]
 video-duplicate = "video_duplicate:main"

@@ -7,6 +7,10 @@ Dependencies:
 ```bash
 sudo apt install libchromaprint-tools
 ```
+Python dependencies:
+```bash
+pip install pyacoustid videohash pillow
+```
 
 ## Usage
 ```python
