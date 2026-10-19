@@ -54,7 +54,11 @@ def remove_video_under_90s(path: Path):
 
     for v in videos:
         trashed = False
-        if get_duration(v) < 90.0:
+        duration = get_duration(v)
+        if duration is None:
+            print(f"Failed to read duration of {v}")
+            continue
+        if duration < 90.0:
             move_to_trash(v)
             trashed = True
         if trashed:

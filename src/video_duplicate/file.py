@@ -9,10 +9,11 @@ from pathlib import Path
 from .utils import get_duration
 
 
-def load_probable_duplicate(folders: list[Path], tolerance=2.0):
-    """Find probable duplicate videos across multiple folders"""
+def load_probable_duplicate(folders: list[Path], tolerance: float = 2.0):
+    """Find probable duplicate videos across multiple folders."""
 
     videos_by_folder = [load_videos_from_folder(folder) for folder in folders]
+
     durations = {
         video: get_duration(video) for videos in videos_by_folder for video in videos
     }
@@ -23,8 +24,14 @@ def load_probable_duplicate(folders: list[Path], tolerance=2.0):
         for video1 in videos1:
             duration1 = durations[video1]
 
+            if duration1 is None:
+                continue
+
             for video2 in videos2:
                 duration2 = durations[video2]
+
+                if duration2 is None:
+                    continue
 
                 if abs(duration1 - duration2) <= tolerance:
                     duplicates.append([video1, video2])
@@ -43,7 +50,9 @@ def load_probable_duplicate_single(
     return [
         [video1, video2]
         for video1, video2 in combinations(videos, 2)
-        if abs(durations[video1] - durations[video2]) <= tolerance
+        if durations[video1] is not None
+        and durations[video2] is not None
+        and abs(durations[video1] - durations[video2]) <= tolerance
     ]
 
 
