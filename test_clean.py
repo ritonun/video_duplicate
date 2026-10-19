@@ -72,6 +72,7 @@ if __name__ == "__main__":
     # load all creators
     path = Path("/home/jerry/optiplex/")
 
+    """
     # remove video under 1min30s
     creators_folders = load_all_creators_folders(path)
     total_progress = Progress(len(creators_folders))
@@ -79,9 +80,9 @@ if __name__ == "__main__":
     for creators_path in creators_folders:
         print(f"REMOVING VIDEO UNDER 90s - PROGRESS {total_progress.get_str()}")
         print(creators_path.name)
-        time.sleep(1)
         remove_video_under_90s(creators_path)
         total_progress.update(current_add=1)
+    """
 
     # remove duplicate
     creators_folders = load_all_creators_folders(path)
@@ -93,7 +94,13 @@ if __name__ == "__main__":
         progress = Progress(len(duplicates))
 
         for duplicate in duplicates:
+            print(f"{creators_path.name} progress: {progress.get_str()}")
             v1, v2 = duplicate
+            if not v1.exists() or not v2.exists():
+                progress.update(total_add=-1)
+                continue
+            progress.update(current_add=1)
+
             if check_if_video_duplicate_quick_hash(v1, v2, size=1024 * 1024):
                 # check if the first 1MB (size) has the same hash between the two videos
                 r = pick_best_video(v1, v2)
@@ -118,7 +125,5 @@ if __name__ == "__main__":
                 r = pick_best_video(v1, v2)
                 move_to_trash(r)
                 print(f"PHASH: Moved to trash {r}")
-
-            print(f"Duplicate progress: {progress.get_str()}")
 
         total_progress.update(current_add=1)
