@@ -12,3 +12,5 @@ wheels/
 # dev
 data/
 test_file.py
+test_clean.py
+.trash/

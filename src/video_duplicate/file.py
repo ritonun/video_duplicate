@@ -32,7 +32,22 @@ def load_probable_duplicate(folders: list[Path], tolerance=2.0):
     return duplicates
 
 
-def load_videos_from_folder(path: Path):
+def load_probable_duplicate_single(
+    folder: Path, tolerance: float = 2.0
+) -> list[list[Path]]:
+    """Find probable duplicate videos within a folder."""
+
+    videos = load_videos_from_folder(folder)
+    durations = {video: get_duration(video) for video in videos}
+
+    return [
+        [video1, video2]
+        for video1, video2 in combinations(videos, 2)
+        if abs(durations[video1] - durations[video2]) <= tolerance
+    ]
+
+
+def load_videos_from_folder(path: Path) -> list[Path]:
     """From a folder load all videos"""
 
     videos = []
