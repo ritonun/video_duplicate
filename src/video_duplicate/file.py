@@ -6,7 +6,7 @@ import shutil
 from itertools import combinations
 from pathlib import Path
 
-from .utils import get_duration, Progress
+from .utils import Progress, get_duration
 
 
 def load_probable_duplicate(folders: list[Path], tolerance: float = 2.0):
