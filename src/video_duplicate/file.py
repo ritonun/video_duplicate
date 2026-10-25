@@ -50,9 +50,11 @@ def load_probable_duplicate_single(
     return [
         [video1, video2]
         for video1, video2 in combinations(videos, 2)
-        if durations[video1] is not None
-        and durations[video2] is not None
-        and abs(durations[video1] - durations[video2]) <= tolerance
+        if (
+            (duration1 := durations.get(video1)) is not None
+            and (duration2 := durations.get(video2)) is not None
+            and abs(duration1 - duration2) <= tolerance
+        )
     ]
 
 
