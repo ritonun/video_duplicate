@@ -44,6 +44,11 @@ def run(
 
     path = Path(input_path)
     creators_folders = load_all_creators_folders(path)
+    if any(
+        file.is_file() and file.suffix.lower() in VIDEO_EXTENSIONS
+        for file in path.iterdir()
+    ):
+        creators_folders.append(path)
 
     # remove video under 'runtime' seconds
     progress = Progress(len(creators_folders))
