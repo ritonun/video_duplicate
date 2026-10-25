@@ -24,7 +24,36 @@ app = typer.Typer()
 
 
 def load_all_creators_folders(path: Path) -> list[Path]:
-    return [p for p in path.iterdir() if p.is_dir() and not p.name.startswith(".")]
+    creators_folders = [
+        p for p in path.iterdir() if p.is_dir() and not p.name.startswith(".")
+    ]
+
+    # Include the root folder if it contains videos.
+    if any(
+        file.is_file() and file.suffix.lower() in VIDEO_EXTENSIONS
+        for file in path.iterdir()
+    ):
+        creators_folders.append(path)
+
+    return creators_folders
+
+
+def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
+    total = 0
+    for folder in paths:
+        for file in folder.iterdir():
+            total += 1
+    progress = Progress(total)
+
+    for folder in paths:
+        for file in folder.iterdir():
+            print(progress.get_str())
+            if file.is_file() and file.suffix.lower() not in VIDEO_EXTENSIONS:
+                if simulate:
+                    print(f"SIMULATE - TRASHED {file}")
+                else:
+                    stage_file_to_trash(str(file), str(folder), trash_dir)
+            progress.update()
 
 
 @app.command()
@@ -44,13 +73,12 @@ def run(
 
     path = Path(input_path)
     creators_folders = load_all_creators_folders(path)
-    if any(
-        file.is_file() and file.suffix.lower() in VIDEO_EXTENSIONS
-        for file in path.iterdir()
-    ):
-        creators_folders.append(path)
+
+    # remove non-video
+    move_non_video_to_trash(creators_folders, trash_dir, simulate=simulate)
 
     # remove video under 'runtime' seconds
+    creators_folders = load_all_creators_folders(path)
     progress = Progress(len(creators_folders))
     for creator_path in creators_folders:
         print(

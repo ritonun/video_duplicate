@@ -36,7 +36,7 @@ class Progress:
         self.total = total
         self.current = current
 
-    def update(self, current_add=0, total_add=0) -> None:
+    def update(self, current_add=1, total_add=0) -> None:
         self.current += current_add
         self.total += total_add
 
