@@ -6,7 +6,7 @@ import shutil
 from itertools import combinations
 from pathlib import Path
 
-from .utils import get_duration
+from .utils import get_duration, Progress
 
 
 def load_probable_duplicate(folders: list[Path], tolerance: float = 2.0):
@@ -157,3 +157,28 @@ def stage_file_to_trash(filepath: str, base_dir: str, trash_dir: str = ".trash")
     print(f"[Trash] Staged rejected duplicate: {relative_path} -> {target_path}")
 
     return target_path
+
+
+def remove_video_under_Xs(
+    path: Path, base_dir: Path, trash_dir, runtime=90.0, simulate=False
+):
+    videos = load_videos_from_folder(path)
+    progress = Progress(len(videos))
+
+    for v in videos:
+        trashed = False
+        duration = get_duration(v)
+        if duration is None:
+            print(f"Failed to read duration of {v}")
+            continue
+        if duration < runtime:
+            if not simulate:
+                stage_file_to_trash(str(path), str(base_dir), trash_dir)
+                trashed = True
+
+            print(f"SIMULATED - TRASHED {v}")
+        if trashed:
+            print(f"TRASHED '{v}'")
+
+        print(f"{progress.get_str()}")
+        progress.update(current_add=1)

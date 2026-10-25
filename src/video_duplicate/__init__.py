@@ -7,10 +7,11 @@ from .file import (
     VIDEO_EXTENSIONS,
     stage_file_to_trash,
     load_probable_duplicate_single,
+    remove_video_under_Xs,
 )
 from .hashing import (
     check_if_duplicate_videos_phash,
     check_if_video_duplicate_quick_hash,
 )
 from .quality import pick_best_video
-from .utils import get_duration
+from .utils import get_duration, Progress
