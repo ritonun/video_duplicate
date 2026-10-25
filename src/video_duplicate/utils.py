@@ -29,3 +29,20 @@ def get_duration(path: Path | str) -> float | None:
     ) as e:
         print(f"Could not read duration: {path}\n  Reason: {e}")
         return None
+
+
+class Progress:
+    def __init__(self, total, current=1):
+        self.total = total
+        self.current = current
+
+    def update(self, current_add=0, total_add=0) -> None:
+        self.current += current_add
+        self.total += total_add
+
+    def get_percent(self) -> float:
+        percent = self.current / self.total * 100
+        return round(percent, 1)
+
+    def get_str(self) -> str:
+        return f"{self.current}/{self.total} {self.get_percent()}%"
