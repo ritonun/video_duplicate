@@ -90,4 +90,4 @@ def check_if_video_duplicate_quick_hash(
 ):
     ha = hash_first_mb_comparison(path1, size=size)
     hb = hash_first_mb_comparison(path2, size=size)
-    return ha == hb
+    return ha == hb, ha, hb

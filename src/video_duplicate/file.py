@@ -182,3 +182,64 @@ def remove_video_under_Xs(
 
         print(f"{progress.get_str()}")
         progress.update(current_add=1)
+
+
+class Cache:
+    def __init__(self, path):
+        self.path = path
+        self.videos = self.load()
+
+    def load(self) -> list[dict]:
+        with open(self.path, "r") as f:
+            lines = f.readlines()
+        videos = []
+        for i, line in enumerate(lines):
+            data = line.strip().replace("\n", "").split(";")
+            if len(data) != 4:
+                print(f"Error reading cache file line {i} : {line}")
+                continue
+            videos.append(
+                {"video": data[0], "hash": data[1], "audio": data[2], "phash": data[3]}
+            )
+        return videos
+
+    def save(
+        self,
+        video: str,
+        hash: str | None = None,
+        audio: str | None = None,
+        phash: str | None = None,
+    ):
+        # format:
+        # video;hash;audio;phash;
+
+        # Find an existing video
+        existing = next((item for item in self.videos if item["video"] == video), None)
+
+        if existing:
+            # Only update values that were provided
+            if hash is not None:
+                existing["hash"] = hash
+
+            if audio is not None:
+                existing["audio"] = audio
+
+            if phash is not None:
+                existing["phash"] = phash
+
+        else:
+            # Create a new entry, missing values become ""
+            self.videos.append(
+                {
+                    "video": video,
+                    "hash": hash if hash is not None else "",
+                    "audio": audio if audio is not None else "",
+                    "phash": phash if phash is not None else "",
+                }
+            )
+
+        with open(self.path, "w") as f:
+            for item in self.videos:
+                f.write(
+                    f"{item['video']};{item['hash']};{item['audio']};{item['phash']}\n"
+                )

@@ -8,6 +8,7 @@ from .file import (
     stage_file_to_trash,
     load_probable_duplicate_single,
     remove_video_under_Xs,
+    Cache,
 )
 from .hashing import (
     check_if_duplicate_videos_phash,
