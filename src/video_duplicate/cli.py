@@ -1,4 +1,4 @@
-# cli.py
+# src/video_duplicate/cli.py
 
 from pathlib import Path
 from typing import Annotated

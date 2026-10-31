@@ -1,4 +1,4 @@
-# file.py
+# src/video_duplicate/file.py
 
 import datetime
 import os

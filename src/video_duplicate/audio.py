@@ -1,4 +1,4 @@
-# audio .py
+# src/video_duplicate/audio .py
 from functools import lru_cache
 from pathlib import Path
 

@@ -1,4 +1,4 @@
-# __init__.py
+# src/video_duplicate/__init__.py
 
 from .audio import (
     acoustic_compare_two_videos,

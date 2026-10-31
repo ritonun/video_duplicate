@@ -1,4 +1,4 @@
-# quality.py
+# src/video_duplicate/quality.py
 
 import os
 import json

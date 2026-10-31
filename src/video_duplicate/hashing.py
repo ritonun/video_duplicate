@@ -1,4 +1,4 @@
-# hashing.py
+# src/video_duplicate/hashing.py
 import hashlib
 import os
 import shutil
