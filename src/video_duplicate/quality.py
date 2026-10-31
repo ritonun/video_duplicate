@@ -1,7 +1,7 @@
 # src/video_duplicate/quality.py
 
-import os
 import json
+import os
 import subprocess
 
 # Codec efficiency multipliers. Modern codecs get a boost.
