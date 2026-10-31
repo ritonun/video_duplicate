@@ -86,6 +86,8 @@ def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
     for folder in paths:
         for file in folder.iterdir():
             print(progress.get_str())
+            if file.name.startswith("."):
+                continue
             if file.is_file() and file.suffix.lower() not in VIDEO_EXTENSIONS:
                 if simulate:
                     print(f"SIMULATE - TRASHED {file}")
