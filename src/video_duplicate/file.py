@@ -185,61 +185,138 @@ def remove_video_under_Xs(
 
 
 class Cache:
-    def __init__(self, path):
-        self.path = path
-        self.videos = self.load()
+    """
+    Video cache.
 
-    def load(self) -> list[dict]:
-        with open(self.path, "r") as f:
-            lines = f.readlines()
-        videos = []
-        for i, line in enumerate(lines):
-            data = line.strip().replace("\n", "").split(";")
-            if len(data) != 4:
-                print(f"Error reading cache file line {i} : {line}")
-                continue
-            videos.append(
-                {"video": data[0], "hash": data[1], "audio": data[2], "phash": data[3]}
-            )
-        return videos
+    File format:
+        video;hash;audio;phash
+
+    Uses a dictionary indexed by video path for O(1) lookups.
+    Changes are kept in memory until flush() is called.
+    """
+
+    def __init__(self, path: Path):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+        if not self.path.exists():
+            self.path.touch()
+
+        self.videos: dict[str, dict[str, str]] = {}
+        self.dirty = False
+
+        self.load()
+
+    def load(self) -> dict[str, dict[str, str]]:
+        """Load the cache file into memory."""
+
+        videos = {}
+
+        with open(self.path, "r", encoding="utf-8") as f:
+            for line_number, line in enumerate(f, start=1):
+                line = line.rstrip("\r\n")
+
+                if not line:
+                    continue
+
+                data = line.split(";", 3)
+
+                if len(data) != 4:
+                    print(f"Error reading cache line {line_number}: {line!r}")
+                    continue
+
+                video, hash_value, audio, phash = data
+
+                videos[video] = {
+                    "hash": hash_value,
+                    "audio": audio,
+                    "phash": phash,
+                }
+
+        self.videos = videos
+        self.dirty = False
+
+        return self.videos
 
     def save(
         self,
-        video: str,
+        video: str | Path,
         hash: str | None = None,
         audio: str | None = None,
         phash: str | None = None,
-    ):
-        # format:
-        # video;hash;audio;phash;
+    ) -> None:
+        """Update a video cache entry in memory."""
 
-        # Find an existing video
-        existing = next((item for item in self.videos if item["video"] == video), None)
+        video = str(video)
 
-        if existing:
-            # Only update values that were provided
-            if hash is not None:
-                existing["hash"] = hash
+        if video not in self.videos:
+            self.videos[video] = {
+                "hash": "",
+                "audio": "",
+                "phash": "",
+            }
 
-            if audio is not None:
-                existing["audio"] = audio
+        entry = self.videos[video]
 
-            if phash is not None:
-                existing["phash"] = phash
+        if hash is not None:
+            entry["hash"] = hash
 
-        else:
-            # Create a new entry, missing values become ""
-            self.videos.append(
-                {
-                    "video": video,
-                    "hash": hash if hash is not None else "",
-                    "audio": audio if audio is not None else "",
-                    "phash": phash if phash is not None else "",
-                }
+        if audio is not None:
+            entry["audio"] = audio
+
+        if phash is not None:
+            entry["phash"] = phash
+
+        self.dirty = True
+
+    def find(self, video: str | Path) -> dict[str, str] | None:
+        """Find a video entry in O(1)."""
+
+        return self.videos.get(str(video))
+
+    def get_param(
+        self,
+        video: str | Path,
+        param: str,
+    ) -> str | None:
+        """Get a cached parameter."""
+
+        entry = self.find(video)
+
+        if entry is None:
+            return None
+
+        value = entry.get(param)
+
+        return value if value else None
+
+    def flush(self) -> None:
+        """Write all cached entries to disk."""
+
+        if not self.dirty:
+            return
+
+        temp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+
+        with open(temp_path, "w", encoding="utf-8") as f:
+            f.writelines(
+                f"{video};{entry['hash']};{entry['audio']};{entry['phash']}\n"
+                for video, entry in self.videos.items()
             )
 
-        with open(self.path, "w") as f:
-            for item in self.videos:
-                f.write(
-                    f"{item['video']};{item['hash']};{item['audio']};{item['phash']}\n"
-                )
+        # Atomic replacement to reduce the risk of a corrupted cache.
+        temp_path.replace(self.path)
+
+        self.dirty = False
+
+    def close(self) -> None:
+        """Save pending changes."""
+
+        self.flush()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.flush()
+        return False

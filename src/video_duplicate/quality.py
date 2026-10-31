@@ -101,3 +101,22 @@ def pick_best_video(path1, path2, quality_margin=1.15, size_savings_margin=0.70)
 
     # Otherwise, raw quality wins
     return higher_q["path"]
+
+
+def pick_worst_video(path1, path2, quality_margin=1.15, size_savings_margin=0.70):
+    v1 = get_video_stats(path1)
+    v2 = get_video_stats(path2)
+
+    if not v1 or not v2:
+        return path1 if v1 else path2  # Fallback if one is broken
+
+    r = pick_best_video(
+        path1,
+        path2,
+        quality_margin=quality_margin,
+        size_savings_margin=size_savings_margin,
+    )
+    if r == path1:
+        return path2
+    elif r == path2:
+        return path1
