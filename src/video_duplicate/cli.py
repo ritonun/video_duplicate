@@ -318,3 +318,5 @@ def run(
 
             cache_txt.flush()
             progress.update()
+
+        cache_txt.remove_missing_files()

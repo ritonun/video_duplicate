@@ -309,6 +309,15 @@ class Cache:
 
         self.dirty = False
 
+    def remove_missing_files(self) -> None:
+        missing = [video for video in self.videos if not Path(video).exists()]
+
+        for video in missing:
+            del self.videos[video]
+
+        if missing:
+            self.dirty = True
+
     def close(self) -> None:
         """Save pending changes."""
 
