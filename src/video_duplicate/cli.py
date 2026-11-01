@@ -237,6 +237,11 @@ def run(
         ),
     ] = 90,
     simulate: Annotated[bool, typer.Option("-s")] = False,
+    skip_runtime: Annotated[bool, typer.Option("--skip-runtime")] = False,
+    remove_non_videos: Annotated[bool, typer.Option("-n")] = False,
+    dup_qhash: Annotated[bool, typer.Option("-q")] = False,
+    dup_audio: Annotated[bool, typer.Option("-a")] = False,
+    dup_phash: Annotated[bool, typer.Option("-p")] = False,
 ):
     print("Running video-duplicate...")
     print(f"Path: {input_path}")
@@ -245,62 +250,70 @@ def run(
     creators_folders = load_all_creators_folders(path)
 
     # remove non-video
-    move_non_video_to_trash(creators_folders, trash_dir, simulate=simulate)
+    if remove_non_videos:
+        move_non_video_to_trash(creators_folders, trash_dir, simulate=simulate)
 
     # remove video under 'runtime' seconds
-    creators_folders = load_all_creators_folders(path)
-    progress = Progress(len(creators_folders))
-    for creator_path in creators_folders:
-        print(
-            f"Removing videos under {runtime}s from {creator_path.name} ({progress.get_str()}"
-        )
-        remove_video_under_Xs(
-            creator_path,
-            creator_path,
-            trash_dir,
-            runtime=float(runtime),
-            simulate=simulate,
-        )
-        progress.update()
+    if not skip_runtime:
+        creators_folders = load_all_creators_folders(path)
+        progress = Progress(len(creators_folders))
+        for creator_path in creators_folders:
+            print(
+                f"Removing videos under {runtime}s from {creator_path.name} ({progress.get_str()}"
+            )
+            remove_video_under_Xs(
+                creator_path,
+                creator_path,
+                trash_dir,
+                runtime=float(runtime),
+                simulate=simulate,
+            )
+            progress.update()
 
-    # analyze all videos
-    # create/get cache
-    if cache == "":
-        cached_file = Path.joinpath(path, ".cache.txt")
-        print(f"No cache file provided. A cache file will be created at {cached_file}")
-    else:
-        cached_file = Path(cache)
-    cache_txt = Cache(cached_file)
+    if dup_qhash or dup_audio or dup_phash:
+        # analyze all videos
+        # create/get cache
+        if cache == "":
+            cached_file = Path.joinpath(path, ".cache.txt")
+            print(
+                f"No cache file provided. A cache file will be created at {cached_file}"
+            )
+        else:
+            cached_file = Path(cache)
+        cache_txt = Cache(cached_file)
 
-    creators_folders = load_all_creators_folders(path)
-    progress = Progress(len(creators_folders))
-    for creator_path in creators_folders:
-        print(f"Analyzing duplicates in folder {creator_path} {progress.get_str()}")
-        print("Finding duplicates...", end="")
-        duplicates = load_probable_duplicate_single(creator_path)
-        print(f" Found {len(duplicates)}")
-        dup_progress = Progress(len(duplicates))
+        creators_folders = load_all_creators_folders(path)
+        progress = Progress(len(creators_folders))
+        for creator_path in creators_folders:
+            print(f"Analyzing duplicates in folder {creator_path} {progress.get_str()}")
+            print("Finding duplicates...", end="")
+            duplicates = load_probable_duplicate_single(creator_path)
+            print(f" Found {len(duplicates)}")
+            dup_progress = Progress(len(duplicates))
 
-        for duplicate in duplicates:
-            # reload cache
-            cache_txt = Cache(cached_file)
+            for duplicate in duplicates:
+                # reload cache
+                cache_txt = Cache(cached_file)
 
-            print(f"{creator_path.name} progress: {dup_progress.get_str()}")
+                print(f"{creator_path.name} progress: {dup_progress.get_str()}")
 
-            v1, v2 = duplicate
-            if not v1.exists() or not v2.exists():
-                dup_progress.update(total_add=-1)
-                continue
-            dup_progress.update(current_add=1)
+                v1, v2 = duplicate
+                if not v1.exists() or not v2.exists():
+                    dup_progress.update(total_add=-1)
+                    continue
+                dup_progress.update(current_add=1)
 
-            if qhash(v1, v2, cache_txt, str(creator_path), trash_dir):
-                continue
-            if audio(v1, v2, cache_txt, str(creator_path), trash_dir):
-                continue
-            if phash(v1, v2, cache_txt, str(creator_path), trash_dir):
-                continue
+                if dup_qhash:
+                    if qhash(v1, v2, cache_txt, str(creator_path), trash_dir):
+                        continue
+                if dup_audio:
+                    if audio(v1, v2, cache_txt, str(creator_path), trash_dir):
+                        continue
+                if dup_phash:
+                    if phash(v1, v2, cache_txt, str(creator_path), trash_dir):
+                        continue
+
+                cache_txt.flush()
 
             cache_txt.flush()
-
-        cache_txt.flush()
-        progress.update()
+            progress.update()
