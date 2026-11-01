@@ -47,7 +47,7 @@ def compare_acoustic_fingerprints(
     try:
         similarity = acoustid.compare_fingerprints(
             fingerprint1,
-            fingerprint1,
+            fingerprint2,
         )
     except Exception as exc:
         return f"[Error] Fingerprint comparison failed: {exc}"
