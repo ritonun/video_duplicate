@@ -45,9 +45,13 @@ def compare_acoustic_fingerprints(
         return "Could not fingerprint video 2."
 
     try:
+        # Unpack duration and raw fingerprint bytes from the tuple
+        _, fp1_bytes = fingerprint1
+        _, fp2_bytes = fingerprint2
+
         similarity = acoustid.compare_fingerprints(
-            fingerprint1,
-            fingerprint2,
+            fp1_bytes,
+            fp2_bytes,
         )
     except Exception as exc:
         return f"Fingerprint comparison failed: {exc}"
