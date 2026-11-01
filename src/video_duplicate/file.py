@@ -9,7 +9,7 @@ from pathlib import Path
 from .utils import Progress, get_duration
 
 
-def load_probable_duplicate(folders: list[Path], tolerance: float = 2.0):
+def load_probable_duplicate(folders: list[Path], tolerance: float = 5.0):
     """Find probable duplicate videos across multiple folders."""
 
     videos_by_folder = [load_videos_from_folder(folder) for folder in folders]
@@ -40,7 +40,7 @@ def load_probable_duplicate(folders: list[Path], tolerance: float = 2.0):
 
 
 def load_probable_duplicate_single(
-    folder: Path, tolerance: float = 2.0
+    folder: Path, tolerance: float = 5.0
 ) -> list[list[Path]]:
     """Find probable duplicate videos within a folder."""
 
