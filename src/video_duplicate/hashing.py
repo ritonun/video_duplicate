@@ -2,6 +2,7 @@
 import hashlib
 import os
 import shutil
+import tempfile
 from pathlib import Path
 
 from PIL import Image
@@ -26,22 +27,13 @@ def get_video_phash(filepath: Path | str, frame_interval=2):
     Safely generates a perceptual hash for a video file.
     Returns the hexadecimal hash string, or None if it fails.
     """
-    temp = "/home/jerry/.temp/"
+    temp_dir = tempfile.TemporaryDirectory()
     try:
-        # create temp fodler
-        try:
-            os.mkdir(temp)
-        except FileExistsError:
-            pass
-        except Exception as e:
-            print("Failed to crate temp dir")
-            return None
-
         # The library creates temporary directories for frame extraction.
         # It usually cleans them up, but we wrap in a try-except to be safe.
         vh = VideoHash(
             str(filepath),
-            storage_path=temp,
+            storage_path=temp_dir.name,
             frame_interval=frame_interval,
         )
         return vh.hash_hex
@@ -49,7 +41,7 @@ def get_video_phash(filepath: Path | str, frame_interval=2):
         print(f"[!] Error hashing {filepath}: {e}")
         return None
     finally:
-        shutil.rmtree(temp, ignore_errors=True)
+        temp_dir.cleanup()
 
 
 def are_videos_duplicates(hash_hex_1, hash_hex_2, tolerance=4):
