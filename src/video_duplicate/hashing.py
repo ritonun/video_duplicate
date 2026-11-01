@@ -2,7 +2,6 @@
 import hashlib
 import os
 import shutil
-import tempfile
 from pathlib import Path
 
 from PIL import Image
@@ -22,18 +21,26 @@ def hash_first_mb_comparison(path, size=1024 * 1024):
     return h.digest()
 
 
-def get_video_phash(filepath: Path | str, frame_interval=2):
+def get_video_phash(filepath: Path | str, temp_dir: str, frame_interval=2):
     """
     Safely generates a perceptual hash for a video file.
     Returns the hexadecimal hash string, or None if it fails.
     """
-    temp_dir = tempfile.TemporaryDirectory()
     try:
+        # create temp fodler
+        try:
+            os.makedirs(temp_dir, exist_ok=True)
+        except FileExistsError:
+            pass
+        except Exception as e:
+            print(f"Failed to create temp dir: {e}")
+            return None
+
         # The library creates temporary directories for frame extraction.
         # It usually cleans them up, but we wrap in a try-except to be safe.
         vh = VideoHash(
             str(filepath),
-            storage_path=temp_dir.name,
+            storage_path=temp_dir,
             frame_interval=frame_interval,
         )
         return vh.hash_hex
@@ -41,7 +48,7 @@ def get_video_phash(filepath: Path | str, frame_interval=2):
         print(f"[!] Error hashing {filepath}: {e}")
         return None
     finally:
-        temp_dir.cleanup()
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def are_videos_duplicates(hash_hex_1, hash_hex_2, tolerance=4):
@@ -70,8 +77,10 @@ def check_if_duplicate_videos_phash(
     and returns True if they are duplicates within the given tolerance.
     """
     # 1. Generate hashes for both videos
-    hash1 = get_video_phash(path1, frame_interval=frame_interval)
-    hash2 = get_video_phash(path2, frame_interval=frame_interval)
+
+    temp_dir = str(path1).replace(Path(path1).name, "/.temp")
+    hash1 = get_video_phash(path1, temp_dir, frame_interval=frame_interval)
+    hash2 = get_video_phash(path2, temp_dir, frame_interval=frame_interval)
 
     # 2. Compare the hex strings using the existing function
     return are_videos_duplicates(hash1, hash2, tolerance)

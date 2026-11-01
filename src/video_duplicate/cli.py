@@ -200,18 +200,19 @@ def audio(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -
 
 
 def phash(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -> bool:
+    temp_dir = trash_dir + "/.temp"
     frame_interval = 2
     tolerance = 4
     p1 = cache.get_param(v1, "phash")
     if p1 is None:
-        p1 = get_video_phash(v1, frame_interval=frame_interval)
+        p1 = get_video_phash(v1, temp_dir, frame_interval=frame_interval)
         if p1 is None:
             print(f"Failed to get phash of video {v1}")
             return False
         cache.save(v1, phash=str(p1))
     p2 = cache.get_param(v2, "phash")
     if p2 is None:
-        p2 = get_video_phash(v2, frame_interval=frame_interval)
+        p2 = get_video_phash(v2, temp_dir, frame_interval=frame_interval)
         if p2 is None:
             print(f"Failed to get phash of video {v2}")
             return False
