@@ -1,6 +1,7 @@
 # src/video_duplicate/file.py
 
 import datetime
+import json
 import os
 import shutil
 from itertools import combinations
@@ -108,79 +109,134 @@ VIDEO_EXTENSIONS = {
 }
 
 
-def stage_file_to_trash(filepath: str, base_dir: str, trash_dir: str = ".trash") -> str:
+def stage_file_to_trash(
+    filepath: str, base_dir: str = None, trash_dir: str = ".trash"
+) -> str:
     """
-    Safely moves a rejected video file to a trash staging area,
-    preserving its original relative directory structure.
-
-    Args:
-        filepath (str): Absolute or relative path to the file to discard.
-        base_dir (str): Root folder being managed/scanned by the CLI tool.
-        trash_dir (str): Folder where discarded files are staged (default '.trash').
-
-    Returns:
-        str: Destination path where the file was moved.
+    Safely moves a rejected video file to a local trash staging area.
+    Works on Debian/headless Linux without desktop environment trash dependencies.
     """
-    # Normalize paths to handle relative paths cleanly
-    filepath = os.path.abspath(filepath)
-    base_dir = os.path.abspath(base_dir)
-    trash_dir = os.path.abspath(trash_dir)
+    # Expand ~ and make absolute
+    filepath = os.path.abspath(os.path.expanduser(filepath))
+
+    if base_dir is not None:
+        base_dir = None
 
     if not os.path.exists(filepath):
         print(f"[!] File not found: {filepath}")
         return ""
 
-    # Determine the relative path from the base root folder
-    # e.g., if base_dir = "/videos", filepath = "/videos/artist1/clip.mp4"
-    # relative_path becomes "artist1/clip.mp4"
-    try:
-        relative_path = os.path.relpath(filepath, start=base_dir)
-    except ValueError:
-        # Fallback if filepath is on a different drive/volume
-        relative_path = os.path.basename(filepath)
+    if os.path.isdir(filepath):
+        print(f"[!] Error: '{filepath}' is a directory, not a file.")
+        return ""
 
-    # Construct full target path inside the trash directory
-    target_path = os.path.join(trash_dir, relative_path)
-    target_folder = os.path.dirname(target_path)
+    filename = os.path.basename(filepath)
 
-    # Ensure target directory structure exists
-    os.makedirs(target_folder, exist_ok=True)
+    # Properly expand ~/ paths for trash_dir
+    trash_dir = os.path.abspath(os.path.expanduser(trash_dir))
+    target_path = os.path.join(trash_dir, filename)
+    meta_path = target_path + ".meta.json"
 
-    # Handle filename collision in trash folder
+    # Ensure target trash directory exists
+    os.makedirs(trash_dir, exist_ok=True)
+
+    # Handle filename collision gracefully if multiple folders have files with the same name
     if os.path.exists(target_path):
-        filename, ext = os.path.splitext(target_path)
+        name, ext = os.path.splitext(filename)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        target_path = f"{filename}_{timestamp}{ext}"
+        target_path = os.path.join(trash_dir, f"{name}_{timestamp}{ext}")
+        meta_path = target_path + ".meta.json"
 
-    # Move file safely
+    # Save original absolute path in metadata for effortless restoration
+    metadata = {
+        "original_path": filepath,
+        "trashed_at": datetime.datetime.now().isoformat(),
+    }
+
+    with open(meta_path, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+    # Move file to trash
     shutil.move(filepath, target_path)
-    print(f"[Trash] Staged rejected duplicate: {relative_path} -> {target_path}")
+    print(f"[Trash] Staged: {filename} -> {target_path}")
 
     return target_path
 
 
+def restore_file_from_trash(trashed_filepath: str) -> str:
+    """
+    Restores a file from the local trash back to its exact original location
+    using its saved metadata sidecar file.
+    """
+    trashed_filepath = os.path.abspath(os.path.expanduser(trashed_filepath))
+    meta_path = trashed_filepath + ".meta.json"
+
+    if not os.path.exists(trashed_filepath):
+        print(f"[!] Trashed file not found: {trashed_filepath}")
+        return ""
+
+    if not os.path.exists(meta_path):
+        print(
+            f"[!] Metadata missing for {trashed_filepath}. Cannot automatically restore."
+        )
+        return ""
+
+    # Read original path from metadata
+    with open(meta_path, "r") as f:
+        metadata = json.load(f)
+
+    original_path = metadata["original_path"]
+
+    # Ensure original parent directory exists
+    os.makedirs(os.path.dirname(original_path), exist_ok=True)
+
+    # Handle collision if something already exists at the original path
+    restore_target = original_path
+    if os.path.exists(restore_target):
+        filename, ext = os.path.splitext(restore_target)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        restore_target = f"{filename}_restored_{timestamp}{ext}"
+        print(f"[!] Original path occupied. Restoring to: {restore_target}")
+
+    # Move file back
+    shutil.move(trashed_filepath, restore_target)
+
+    # Clean up metadata file
+    os.remove(meta_path)
+
+    print(f"[Restore] Successfully restored to: {restore_target}")
+    return restore_target
+
+
 def remove_video_under_Xs(
-    path: Path, base_dir: Path, trash_dir, runtime=90.0, simulate=False
+    path: Path,
+    base_dir: Path | str = None,
+    trash_dir: str = ".trash",
+    runtime=90.0,
+    simulate=False,
 ):
+    """
+    Finds videos under the specified runtime threshold and stages them to trash.
+    base_dir is kept in the signature for CLI compatibility but is no longer required.
+    """
     videos = load_videos_from_folder(path)
     progress = Progress(len(videos))
 
     for v in videos:
-        trashed = False
         duration = get_duration(v)
         if duration is None:
             print(f"Failed to read duration of {v}")
+            progress.update(current_add=1)
             continue
+
         if duration < runtime:
-            if not simulate:
-                stage_file_to_trash(str(path), str(base_dir), trash_dir)
-                trashed = True
+            if simulate:
+                print(f"[SIMULATED] Would trash: {v} (duration: {duration:.1f}s)")
+            else:
+                stage_file_to_trash(str(v), trash_dir=str(trash_dir))
+                print(f"[TRASHED] '{v}'")
 
-            print(f"SIMULATED - TRASHED {v}")
-        if trashed:
-            print(f"TRASHED '{v}'")
-
-        print(f"{progress.get_str()}")
+        print(progress.get_str())
         progress.update(current_add=1)
 
 

@@ -92,7 +92,7 @@ def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
                 if simulate:
                     print(f"SIMULATE - TRASHED {file}")
                 else:
-                    stage_file_to_trash(str(file), str(folder), trash_dir)
+                    stage_file_to_trash(str(file), trash_dir)
             progress.update()
 
 
@@ -116,7 +116,7 @@ def qhash(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -
     if h1 == h2:
         # check if the first 1MB (size) has the same hash between the two videos
         r = pick_worst_video(v1, v2)
-        stage_file_to_trash(str(r), creator_path, trash_dir)
+        stage_file_to_trash(str(r), Path(creator_path).name, trash_dir)
         print(f"HASHG: Moved to trash {r}")
         return True
     return False
@@ -189,7 +189,7 @@ def audio(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -
 
         stage_file_to_trash(
             str(worst_video),
-            creator_path,
+            Path(creator_path).name,
             trash_dir,
         )
 
@@ -220,7 +220,7 @@ def phash(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -
 
     if are_videos_duplicates(p1, p2, tolerance=tolerance):
         r = pick_worst_video(v1, v2)
-        stage_file_to_trash(str(r), str(creator_path), trash_dir)
+        stage_file_to_trash(str(r), Path(creator_path).name, trash_dir)
         print(f"PHASH: Moved to trash {r}")
         return True
     return False
