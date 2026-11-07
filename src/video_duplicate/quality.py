@@ -103,7 +103,9 @@ def pick_best_video(path1, path2, quality_margin=1.15, size_savings_margin=0.70)
     return higher_q["path"]
 
 
-def pick_worst_video(path1, path2, quality_margin=1.15, size_savings_margin=0.70):
+def pick_worst_video(
+    path1: str, path2: str, quality_margin=1.15, size_savings_margin=0.70
+):
     v1 = get_video_stats(path1)
     v2 = get_video_stats(path2)
 

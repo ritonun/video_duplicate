@@ -140,7 +140,7 @@ def qhash(v1: Video, v2: Video, db: DB, trash_dir: str) -> bool:
 
     if h1 == h2:
         # check if the first 1MB (size) has the same hash between the two videos
-        worst_video = pick_worst_video(v1, v2)
+        worst_video = pick_worst_video(v1.path, v2.path)
         stage_file_to_trash(str(worst_video), trash_dir=trash_dir)
         tqdm.write(f"HASHG: Moved to trash {worst_video}")
         return True
@@ -209,7 +209,7 @@ def audio(
         return False
 
     if similarity > 0.8:
-        worst_video = pick_worst_video(v1, v2)
+        worst_video = pick_worst_video(v1.path, v2.path)
 
         stage_file_to_trash(
             str(worst_video),
