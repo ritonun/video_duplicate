@@ -106,6 +106,12 @@ class DB:
 
         return [self._row_to_video(row) for row in cursor.fetchall()]
 
+    def get_creators(self) -> list[str]:
+        cursor = self.conn.execute(
+            "SELECT DISTINCT creator FROM videos ORDER BY creator"
+        )
+        return [row["creator"] for row in cursor.fetchall()]
+
     def get_or_create_video(
         self,
         path: str | Path,

@@ -357,34 +357,34 @@ def run(
 
         # Analyze duplicates.
         if dup_qhash or dup_audio or dup_phash:
-            for creator_path in tqdm(
-                creators_folders, desc="creators progress", unit="c", leave=True
+            print("Finding all duplicates... (long operation)")
+
+            duplicates = []
+            creators = db.get_creators()
+
+            for creator in tqdm(
+                creators, desc="Scanning creators", unit="c", leave=False
             ):
-                duplicates = load_probable_duplicate_single(
-                    db.get_videos_by_creator(str(creator_path))
-                )
-                tqdm.write(f" Found {len(duplicates)} duplicates")
+                creator_videos = db.get_videos_by_creator(creator)
+                dups = load_probable_duplicate_single(creator_videos)
+                duplicates.extend(dups)
 
-                for video1, video2 in tqdm(
-                    duplicates,
-                    desc=f"{creator_path.name} progress",
-                    unit="d",
-                    leave=False,
-                ):
-                    if not Path(video1.path).exists() or not Path(video2.path).exists():
-                        continue
+            tqdm.write(f" Found {len(duplicates)} duplicates")
 
-                    if dup_qhash and qhash(
-                        video1, video2, db, str(creator_path), trash_dir
-                    ):
-                        continue
+            for video1, video2 in tqdm(
+                duplicates,
+                desc="Checking duplicates",
+                unit="pair",
+                leave=False,
+            ):
+                if not Path(video1.path).exists() or not Path(video2.path).exists():
+                    continue
 
-                    if dup_audio and audio(
-                        video1, video2, db, str(creator_path), trash_dir
-                    ):
-                        continue
+                if dup_qhash and qhash(video1, video2, db, video1.creator, trash_dir):
+                    continue
 
-                    if dup_phash and phash(
-                        video1, video2, db, str(creator_path), trash_dir
-                    ):
-                        continue
+                if dup_audio and audio(video1, video2, db, video1.creator, trash_dir):
+                    continue
+
+                if dup_phash and phash(video1, video2, db, video1.creator, trash_dir):
+                    continue

@@ -1,6 +1,6 @@
 [project]
 name = "video-duplicate"
-version = "1.0.6"
+version = "1.0.7"
 description = "Find duplicate videos across folders"
 readme = "README.md"
 authors = [{ name = "ritonun", email = "you@example.com" }]
