@@ -12,7 +12,6 @@ from .file import (
     stage_file_to_trash,
     load_probable_duplicate_single,
     remove_video_under_Xs,
-    Cache,
 )
 from .hashing import (
     check_if_duplicate_videos_phash,
@@ -23,3 +22,4 @@ from .hashing import (
 )
 from .quality import pick_best_video, pick_worst_video
 from .utils import get_duration, Progress
+from .database import DB, Status, Video

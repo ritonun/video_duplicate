@@ -2,8 +2,6 @@
 
 from pathlib import Path
 from typing import Annotated
-import base64
-import json
 
 import typer
 
@@ -26,38 +24,12 @@ from video_duplicate import (
     remove_video_under_Xs,
     stage_file_to_trash,
     pick_worst_video,
+    DB,
+    Video,
+    Status,
 )
 
-type Fingerprint = tuple[float, bytes]
 app = typer.Typer()
-
-
-def fingerprint_to_cache(fingerprint: Fingerprint) -> str:
-    """Convert a fingerprint into a text-safe string."""
-
-    duration, fingerprint_bytes = fingerprint
-
-    data = {
-        "duration": duration,
-        "fingerprint": base64.b64encode(fingerprint_bytes).decode("ascii"),
-    }
-
-    return json.dumps(data)
-
-
-def fingerprint_from_cache(value: str) -> Fingerprint | None:
-    """Restore the exact original fingerprint from the cache."""
-
-    try:
-        data = json.loads(value)
-
-        duration = float(data["duration"])
-        fingerprint_bytes = base64.b64decode(data["fingerprint"], validate=True)
-
-        return duration, fingerprint_bytes
-
-    except Exception:
-        return None
 
 
 def load_all_creators_folders(path: Path) -> list[Path]:
@@ -95,45 +67,49 @@ def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
             progress.update()
 
 
-def qhash(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -> bool:
+def qhash(v1: Path, v2: Path, db: DB, creator_path: str, trash_dir: str) -> bool:
     size = 1024 * 1024
 
-    v1_cache = cache.find(v1)
-    if v1_cache is None or v1_cache["hash"] == "":
-        h1 = hash_first_mb_comparison(v1, size=size)
-        cache.save(v1, hash=str(h1))
-    else:
-        h1 = v1_cache["hash"]
+    video1 = db.get_or_create_video(v1)
+    video2 = db.get_or_create_video(v2)
 
-    v2_cache = cache.find(v2)
-    if v2_cache is None or v2_cache["hash"] == "":
-        h2 = hash_first_mb_comparison(v2, size=size)
-        cache.save(v2, hash=str(h2))
+    if video1.qhash is None:
+        h1 = hash_first_mb_comparison(v1, size=size)
+        db.update_video(v1, qhash=str(h1))
     else:
-        h2 = v2_cache["hash"]
+        h1 = video1.qhash
+
+    if video2.qhash is None:
+        h2 = hash_first_mb_comparison(v2, size=size)
+        db.update_video(v2, qhash=str(h2))
+    else:
+        h2 = video2.qhash
 
     if h1 == h2:
         # check if the first 1MB (size) has the same hash between the two videos
-        r = pick_worst_video(v1, v2)
-        stage_file_to_trash(str(r), Path(creator_path).name, trash_dir)
-        print(f"HASHG: Moved to trash {r}")
+        worst_video = pick_worst_video(v1, v2)
+        stage_file_to_trash(str(worst_video), Path(creator_path).name, trash_dir)
+        print(f"HASHG: Moved to trash {worst_video}")
         return True
     return False
 
 
-def audio(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -> bool:
-
+def audio(
+    v1: Path,
+    v2: Path,
+    db: DB,
+    creator_path: str,
+    trash_dir: str,
+) -> bool:
     fingerprint_length = 60
 
-    # video 1
-    cached_audio1 = cache.get_param(v1, "audio")
+    video1 = db.get_or_create_video(v1)
+    video2 = db.get_or_create_video(v2)
 
-    if cached_audio1 is not None:
-        audio1 = fingerprint_from_cache(cached_audio1)
+    # Get or calculate the first video's fingerprint.
+    if video1.audio is not None and video1.audio_duration is not None:
+        audio1 = (video1.audio_duration, video1.audio)
     else:
-        audio1 = None
-
-    if audio1 is None:
         audio1 = acoustic_fingerprint(
             v1,
             fingerprint_length=fingerprint_length,
@@ -143,20 +119,18 @@ def audio(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -
             print(f"Error getting audio fingerprint of {v1}")
             return False
 
-        cache.save(
+        duration, fingerprint = audio1
+
+        db.update_video(
             v1,
-            audio=fingerprint_to_cache(audio1),
+            audio=fingerprint,
+            audio_duration=duration,
         )
 
-    # video 2
-    cached_audio2 = cache.get_param(v2, "audio")
-
-    if cached_audio2 is not None:
-        audio2 = fingerprint_from_cache(cached_audio2)
+    # Get or calculate the second video's fingerprint.
+    if video2.audio is not None and video2.audio_duration is not None:
+        audio2 = (video2.audio_duration, video2.audio)
     else:
-        audio2 = None
-
-    if audio2 is None:
         audio2 = acoustic_fingerprint(
             v2,
             fingerprint_length=fingerprint_length,
@@ -166,16 +140,15 @@ def audio(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -
             print(f"Error getting audio fingerprint of {v2}")
             return False
 
-        cache.save(
+        duration, fingerprint = audio2
+
+        db.update_video(
             v2,
-            audio=fingerprint_to_cache(audio2),
+            audio=fingerprint,
+            audio_duration=duration,
         )
 
-    # compare
-    similarity = compare_acoustic_fingerprints(
-        audio1,
-        audio2,
-    )
+    similarity = compare_acoustic_fingerprints(audio1, audio2)
 
     if isinstance(similarity, str):
         print(f"Error comparing audio between {v1} and {v2}: {similarity}")
@@ -198,30 +171,64 @@ def audio(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -
     return False
 
 
-def phash(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -> bool:
+def phash(
+    v1: Path,
+    v2: Path,
+    db: DB,
+    creator_path: str,
+    trash_dir: str,
+) -> bool:
     temp_dir = trash_dir + "/.temp"
     frame_interval = 2
     tolerance = 4
-    p1 = cache.get_param(v1, "phash")
-    if p1 is None:
-        p1 = get_video_phash(v1, temp_dir, frame_interval=frame_interval)
+
+    video1 = db.get_or_create_video(v1)
+    video2 = db.get_or_create_video(v2)
+
+    if video1.phash is None:
+        p1 = get_video_phash(
+            v1,
+            temp_dir,
+            frame_interval=frame_interval,
+        )
+
         if p1 is None:
             print(f"Failed to get phash of video {v1}")
             return False
-        cache.save(v1, phash=str(p1))
-    p2 = cache.get_param(v2, "phash")
-    if p2 is None:
-        p2 = get_video_phash(v2, temp_dir, frame_interval=frame_interval)
+
+        p1 = str(p1)
+        db.update_video(v1, phash=p1)
+    else:
+        p1 = video1.phash
+
+    if video2.phash is None:
+        p2 = get_video_phash(
+            v2,
+            temp_dir,
+            frame_interval=frame_interval,
+        )
+
         if p2 is None:
             print(f"Failed to get phash of video {v2}")
             return False
-        cache.save(v2, phash=str(p2))
+
+        p2 = str(p2)
+        db.update_video(v2, phash=p2)
+    else:
+        p2 = video2.phash
 
     if are_videos_duplicates(p1, p2, tolerance=tolerance):
-        r = pick_worst_video(v1, v2)
-        stage_file_to_trash(str(r), Path(creator_path).name, trash_dir)
-        print(f"PHASH: Moved to trash {r}")
+        worst_video = pick_worst_video(v1, v2)
+
+        stage_file_to_trash(
+            str(worst_video),
+            Path(creator_path).name,
+            trash_dir,
+        )
+
+        print(f"PHASH: Moved to trash {worst_video}")
         return True
+
     return False
 
 
@@ -229,7 +236,10 @@ def phash(v1: Path, v2: Path, cache: Cache, creator_path: str, trash_dir: str) -
 def run(
     input_path: str,
     trash_dir: str,
-    cache: Annotated[str, typer.Option("--cache", "-c", help="Path to cache")] = "",
+    database: Annotated[
+        str,
+        typer.Option("--database", "-d", help="Path to SQLite database"),
+    ] = "",
     runtime: Annotated[
         int,
         typer.Option(
@@ -271,51 +281,45 @@ def run(
             progress.update()
 
     if dup_qhash or dup_audio or dup_phash:
-        # analyze all videos
-        # create/get cache
-        if cache == "":
-            cached_file = Path.joinpath(path, ".cache.txt")
+        if database == "":
+            database_file = path / ".video-duplicate.db"
             print(
-                f"No cache file provided. A cache file will be created at {cached_file}"
+                f"No database file provided. A database will be created at {database_file}"
             )
         else:
-            cached_file = Path(cache)
-        cache_txt = Cache(cached_file)
+            database_file = Path(database)
 
         creators_folders = load_all_creators_folders(path)
-        progress = Progress(len(creators_folders))
-        for creator_path in creators_folders:
-            print(f"Analyzing duplicates in folder {creator_path} {progress.get_str()}")
-            print("Finding duplicates...", end="")
-            duplicates = load_probable_duplicate_single(creator_path)
-            print(f" Found {len(duplicates)}")
-            dup_progress = Progress(len(duplicates))
+        with DB(database_file) as db:
+            progress = Progress(len(creators_folders))
+            for creator_path in creators_folders:
+                print(
+                    f"Analyzing duplicates in folder {creator_path} {progress.get_str()}"
+                )
+                print("Finding duplicates...", end="")
 
-            for duplicate in duplicates:
-                # reload cache
-                cache_txt = Cache(cached_file)
+                duplicates = load_probable_duplicate_single(creator_path)
+                print(f" Found {len(duplicates)}")
 
-                print(f"{creator_path.name} progress: {dup_progress.get_str()}")
-
-                v1, v2 = duplicate
-                if not v1.exists() or not v2.exists():
-                    dup_progress.update(total_add=-1)
-                    continue
-                dup_progress.update(current_add=1)
-
-                if dup_qhash:
-                    if qhash(v1, v2, cache_txt, str(creator_path), trash_dir):
-                        continue
-                if dup_audio:
-                    if audio(v1, v2, cache_txt, str(creator_path), trash_dir):
-                        continue
-                if dup_phash:
-                    if phash(v1, v2, cache_txt, str(creator_path), trash_dir):
+                dup_progress = Progress(len(duplicates))
+                for v1, v2 in duplicates:
+                    print(f"{creator_path.name} progress: {dup_progress.get_str()}")
+                    if not v1.exists() or not v2.exists():
+                        dup_progress.update(total_add=-1)
                         continue
 
-                cache_txt.flush()
+                    dup_progress.update(current_add=1)
 
-            cache_txt.flush()
-            progress.update()
+                    if dup_qhash:
+                        if qhash(v1, v2, db, str(creator_path), trash_dir):
+                            continue
+                    if dup_audio:
+                        if audio(v1, v2, db, str(creator_path), trash_dir):
+                            continue
+                    if dup_phash:
+                        if phash(v1, v2, db, str(creator_path), trash_dir):
+                            continue
 
-        cache_txt.remove_missing_files()
+                progress.update()
+
+            db.remove_missing_files()
