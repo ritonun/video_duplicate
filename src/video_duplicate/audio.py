@@ -53,16 +53,3 @@ def compare_acoustic_fingerprints(
         return f"[Error] Fingerprint comparison failed: {exc}"
 
     return float(similarity)
-
-
-def acoustic_compare_two_videos(
-    path1: Path, path2: Path, fingerprint_length: int = 60
-) -> float | str:
-    """
-    Fingerprint two videos and compare their audio.
-    """
-
-    fingerprint1 = acoustic_fingerprint(path1, fingerprint_length=fingerprint_length)
-    fingerprint2 = acoustic_fingerprint(path2, fingerprint_length=fingerprint_length)
-
-    return compare_acoustic_fingerprints(fingerprint1, fingerprint2)

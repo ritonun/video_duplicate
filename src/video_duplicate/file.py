@@ -5,38 +5,8 @@ import json
 import os
 import shutil
 from itertools import combinations
-from pathlib import Path
 
-from tqdm import tqdm
-
-from .utils import get_duration
 from .database import Video
-
-
-def load_probable_duplicate(
-    videos: list[Video],
-    tolerance: float = 5.0,
-) -> list[list[Video]]:
-    """Find probable duplicates between different creators."""
-
-    videos_by_creator: dict[str, list[Video]] = {}
-
-    for video in videos:
-        videos_by_creator.setdefault(video.creator, []).append(video)
-
-    duplicates = []
-
-    for videos1, videos2 in combinations(videos_by_creator.values(), 2):
-        for video1 in videos1:
-            for video2 in videos2:
-                if (
-                    video1.runtime is not None
-                    and video2.runtime is not None
-                    and abs(video1.runtime - video2.runtime) <= tolerance
-                ):
-                    duplicates.append([video1, video2])
-
-    return duplicates
 
 
 def load_probable_duplicate_single(
@@ -54,18 +24,6 @@ def load_probable_duplicate_single(
             and abs(video1.runtime - video2.runtime) <= tolerance
         )
     ]
-
-
-def load_videos_from_folder(path: Path) -> list[Path]:
-    """From a folder load all videos"""
-
-    videos = []
-    files = list(path.iterdir())
-    for file in files:
-        p = Path(file)
-        if p.suffix.lower() in VIDEO_EXTENSIONS:
-            videos.append(file)
-    return videos
 
 
 VIDEO_EXTENSIONS = {
@@ -202,30 +160,3 @@ def restore_file_from_trash(trashed_filepath: str) -> str:
 
     print(f"[Restore] Successfully restored to: {restore_target}")
     return restore_target
-
-
-def remove_video_under_Xs(
-    path: Path,
-    base_dir: Path | str = None,
-    trash_dir: str = ".trash",
-    runtime=90.0,
-    simulate=False,
-):
-    """
-    Finds videos under the specified runtime threshold and stages them to trash.
-    base_dir is kept in the signature for CLI compatibility but is no longer required.
-    """
-    videos = load_videos_from_folder(path)
-
-    for v in tqdm(videos, desc="analyzing videos", unit="v", leave=False):
-        duration = get_duration(v)
-        if duration is None:
-            tqdm.write(f"Failed to read duration of {v}")
-            continue
-
-        if duration < runtime:
-            if simulate:
-                tqdm.write(f"[SIMULATED] Would trash: {v} (duration: {duration:.1f}s)")
-            else:
-                stage_file_to_trash(str(v), trash_dir=str(trash_dir))
-                tqdm.write(f"[TRASHED] '{v}'")
