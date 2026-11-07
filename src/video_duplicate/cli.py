@@ -75,25 +75,30 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
     # Register every discovered video in the database.
     print("Registering all videos found into db...")
 
+    videos = [
+        file
+        for folder in creators_folders
+        for file in folder.iterdir()
+        if file.is_file()
+        and not file.name.startswith(".")
+        and file.suffix.lower() in VIDEO_EXTENSIONS
+    ]
+
     new_video_found = 0
     video_treated = 0
 
-    for folder in creators_folders:
-        for file in folder.iterdir():
-            if (
-                file.is_file()
-                and not file.name.startswith(".")
-                and file.suffix.lower() in VIDEO_EXTENSIONS
-            ):
-                if db.get_video(file) is None:
-                    runtime = get_duration(file)
+    for file in videos:
+        video_treated += 1
+        if db.get_video(file) is None:
+            runtime = get_duration(file)
 
-                    if runtime is None:
-                        print(f"Could not get runtime for {file}")
+            if runtime is None:
+                print(f"Could not get runtime for {file}")
 
-                    db.get_or_create_video(file, runtime=runtime)
-                    new_video_found += 1
-                    print(f"{video_treated}/{new_video_found}", end="\r")
+            db.get_or_create_video(file, runtime=runtime)
+            new_video_found += 1
+            print(f"{new_video_found} {video_treated}/{len(videos)}", end="\r")
+
     if new_video_found == 0:
         print("No new video found.")
     else:
