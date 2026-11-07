@@ -376,11 +376,11 @@ def run(
                 if not Path(video1.path).exists() or not Path(video2.path).exists():
                     continue
 
-                if dup_qhash and qhash(video1, video2, db, video1.creator, trash_dir):
+                if dup_qhash and qhash(video1, video2, db, trash_dir):
                     continue
 
-                if dup_audio and audio(video1, video2, db, video1.creator, trash_dir):
+                if dup_audio and audio(video1, video2, db, trash_dir):
                     continue
 
-                if dup_phash and phash(video1, video2, db, video1.creator, trash_dir):
+                if dup_phash and phash(video1, video2, db, trash_dir):
                     continue
