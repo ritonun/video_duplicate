@@ -7,7 +7,9 @@ import shutil
 from itertools import combinations
 from pathlib import Path
 
-from .utils import Progress, get_duration
+from tqdm import tqdm
+
+from .utils import get_duration
 
 
 def load_probable_duplicate(folders: list[Path], tolerance: float = 5.0):
@@ -220,21 +222,16 @@ def remove_video_under_Xs(
     base_dir is kept in the signature for CLI compatibility but is no longer required.
     """
     videos = load_videos_from_folder(path)
-    progress = Progress(len(videos))
 
-    for v in videos:
+    for v in tqdm(videos, desc="analyzing videos", unit="v", leave=False):
         duration = get_duration(v)
         if duration is None:
-            print(f"Failed to read duration of {v}")
-            progress.update(current_add=1)
+            tqdm.write(f"Failed to read duration of {v}")
             continue
 
         if duration < runtime:
             if simulate:
-                print(f"[SIMULATED] Would trash: {v} (duration: {duration:.1f}s)")
+                tqdm.write(f"[SIMULATED] Would trash: {v} (duration: {duration:.1f}s)")
             else:
                 stage_file_to_trash(str(v), trash_dir=str(trash_dir))
-                print(f"[TRASHED] '{v}'")
-
-        print(progress.get_str())
-        progress.update(current_add=1)
+                tqdm.write(f"[TRASHED] '{v}'")

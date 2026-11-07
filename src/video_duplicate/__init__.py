@@ -21,5 +21,5 @@ from .hashing import (
     get_video_phash,
 )
 from .quality import pick_best_video, pick_worst_video
-from .utils import get_duration, Progress
+from .utils import get_duration
 from .database import DB, Status, Video

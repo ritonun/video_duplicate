@@ -4,10 +4,10 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+from tqdm import tqdm
 
 from video_duplicate import (
     VIDEO_EXTENSIONS,
-    Progress,
     acoustic_compare_two_videos,
     acoustic_fingerprint,
     are_videos_duplicates,
@@ -50,7 +50,7 @@ def load_all_creators_folders(path: Path) -> list[Path]:
 def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
     """Find creator folders containing videos and register videos in the DB."""
 
-    print("Scanning creators folders...")
+    tqdm.write("Scanning creators folders...")
     creators_folders = [
         folder
         for folder in path.iterdir()
@@ -73,7 +73,7 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
         creators_folders.append(path)
 
     # Register every discovered video in the database.
-    print("Registering all videos found into db...")
+    tqdm.write("Registering all videos found into db...")
 
     videos = [
         file
@@ -91,21 +91,21 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
             runtime = get_duration(file)
 
             if runtime is None:
-                print(f"Could not get runtime for {file}")
+                tqdm.write(f"Could not get runtime for {file}")
 
             db.get_or_create_video(file, runtime=runtime)
             new_video_found += 1
-            print(f"{new_video_found} {i}/{len(videos)}", end="\r")
+            tqdm.write(f"{new_video_found} {i}/{len(videos)}", end="\r")
 
     if new_video_found == 0:
-        print("No new video found.")
+        tqdm.write("No new video found.")
     else:
-        print(f"Found {new_video_found} new video.")
+        tqdm.write(f"Found {new_video_found} new video.")
 
     # Remove records for files that no longer exist.
     removed = db.remove_missing_files()
     if removed:
-        print(f"Removed {removed} missing videos from database")
+        tqdm.write(f"Removed {removed} missing videos from database")
 
     return creators_folders
 
@@ -115,19 +115,16 @@ def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
     for folder in paths:
         for file in folder.iterdir():
             total += 1
-    progress = Progress(total)
 
-    for folder in paths:
+    for folder in tqdm(paths, desc="Folders progress", unit="f", leave=False):
         for file in folder.iterdir():
-            print(progress.get_str())
             if file.name.startswith("."):
                 continue
             if file.is_file() and file.suffix.lower() not in VIDEO_EXTENSIONS:
                 if simulate:
-                    print(f"SIMULATE - TRASHED {file}")
+                    tqdm.write(f"SIMULATE - TRASHED {file}")
                 else:
                     stage_file_to_trash(str(file), trash_dir)
-            progress.update()
 
 
 def qhash(v1: Path, v2: Path, db: DB, creator_path: str, trash_dir: str) -> bool:
@@ -152,7 +149,7 @@ def qhash(v1: Path, v2: Path, db: DB, creator_path: str, trash_dir: str) -> bool
         # check if the first 1MB (size) has the same hash between the two videos
         worst_video = pick_worst_video(v1, v2)
         stage_file_to_trash(str(worst_video), Path(creator_path).name, trash_dir)
-        print(f"HASHG: Moved to trash {worst_video}")
+        tqdm.write(f"HASHG: Moved to trash {worst_video}")
         return True
     return False
 
@@ -179,7 +176,7 @@ def audio(
         )
 
         if audio1 is None:
-            print(f"Error getting audio fingerprint of {v1}")
+            tqdm.write(f"Error getting audio fingerprint of {v1}")
             return False
 
         duration, fingerprint = audio1
@@ -200,7 +197,7 @@ def audio(
         )
 
         if audio2 is None:
-            print(f"Error getting audio fingerprint of {v2}")
+            tqdm.write(f"Error getting audio fingerprint of {v2}")
             return False
 
         duration, fingerprint = audio2
@@ -214,10 +211,8 @@ def audio(
     similarity = compare_acoustic_fingerprints(audio1, audio2)
 
     if isinstance(similarity, str):
-        print(f"Error comparing audio between {v1} and {v2}: {similarity}")
+        tqdm.write(f"Error comparing audio between {v1} and {v2}: {similarity}")
         return False
-
-    print(f"Audio similarity: {similarity:.4f}")
 
     if similarity > 0.8:
         worst_video = pick_worst_video(v1, v2)
@@ -228,7 +223,7 @@ def audio(
             trash_dir,
         )
 
-        print(f"AUDIO: Moved to trash {worst_video}")
+        tqdm.write(f"AUDIO: Moved to trash {worst_video}")
         return True
 
     return False
@@ -256,7 +251,7 @@ def phash(
         )
 
         if p1 is None:
-            print(f"Failed to get phash of video {v1}")
+            tqdm.write(f"Failed to get phash of video {v1}")
             return False
 
         p1 = str(p1)
@@ -272,7 +267,7 @@ def phash(
         )
 
         if p2 is None:
-            print(f"Failed to get phash of video {v2}")
+            tqdm.write(f"Failed to get phash of video {v2}")
             return False
 
         p2 = str(p2)
@@ -289,7 +284,7 @@ def phash(
             trash_dir,
         )
 
-        print(f"PHASH: Moved to trash {worst_video}")
+        tqdm.write(f"PHASH: Moved to trash {worst_video}")
         return True
 
     return False
@@ -342,12 +337,11 @@ def run(
 
         # Remove videos under the requested runtime.
         if not skip_runtime:
-            progress = Progress(len(creators_folders))
-
-            for creator_path in creators_folders:
-                print(
-                    f"Removing videos under {runtime}s from "
-                    f"{creator_path.name} ({progress.get_str()}"
+            for creator_path in tqdm(
+                creators_folders, desc="remove non-video folders", unit="v"
+            ):
+                tqdm.write(
+                    f"Removing videos under {runtime}s from {creator_path.name} "
                 )
 
                 remove_video_under_Xs(
@@ -358,32 +352,22 @@ def run(
                     simulate=simulate,
                 )
 
-                progress.update()
-
         # Analyze duplicates.
         if dup_qhash or dup_audio or dup_phash:
-            progress = Progress(len(creators_folders))
-
-            for creator_path in creators_folders:
-                print(
-                    f"Analyzing duplicates in folder "
-                    f"{creator_path} {progress.get_str()}"
-                )
-                print("Finding duplicates...", end="")
-
+            for creator_path in tqdm(
+                creators_folders, desc="creators progress", unit="c", leave=True
+            ):
                 duplicates = load_probable_duplicate_single(creator_path)
-                print(f" Found {len(duplicates)}")
+                tqdm.write(f" Found {len(duplicates)} duplicates")
 
-                dup_progress = Progress(len(duplicates))
-
-                for v1, v2 in duplicates:
-                    print(f"{creator_path.name} progress: {dup_progress.get_str()}")
-
+                for v1, v2 in tqdm(
+                    duplicates,
+                    desc=f"{creator_path.name} progress",
+                    unit="d",
+                    leave=False,
+                ):
                     if not v1.exists() or not v2.exists():
-                        dup_progress.update(total_add=-1)
                         continue
-
-                    dup_progress.update(current_add=1)
 
                     if dup_qhash:
                         if qhash(v1, v2, db, str(creator_path), trash_dir):
