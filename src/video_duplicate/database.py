@@ -74,6 +74,7 @@ class DB:
         self,
         path: str | Path,
         creator: str | None = None,
+        runtime: float | None = None,
     ) -> Video:
         """Return an existing video or create a new database record."""
 
@@ -86,15 +87,16 @@ class DB:
         if creator is None:
             creator = path.parent.name
 
-        cursor = self.conn.execute(
+        self.conn.execute(
             """
-            INSERT INTO videos (path, name, creator)
-            VALUES (?, ?, ?)
+            INSERT INTO videos (path, name, creator, runtime)
+            VALUES (?, ?, ?, ?)
             """,
             (
                 str(path),
                 path.name,
                 creator,
+                runtime,
             ),
         )
         self.conn.commit()

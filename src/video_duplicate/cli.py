@@ -47,6 +47,54 @@ def load_all_creators_folders(path: Path) -> list[Path]:
     return creators_folders
 
 
+def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
+    """Find creator folders containing videos and register videos in the DB."""
+
+    creators_folders = [
+        folder
+        for folder in path.iterdir()
+        if folder.is_dir()
+        and not folder.name.startswith(".")
+        and any(
+            file.is_file() and file.suffix.lower() in VIDEO_EXTENSIONS
+            for file in folder.iterdir()
+            if not file.name.startswith(".")
+        )
+    ]
+
+    # Include the root folder if it directly contains videos.
+    if any(
+        file.is_file()
+        and file.suffix.lower() in VIDEO_EXTENSIONS
+        and not file.name.startswith(".")
+        for file in path.iterdir()
+    ):
+        creators_folders.append(path)
+
+    # Register every discovered video in the database.
+    for folder in creators_folders:
+        for file in folder.iterdir():
+            if (
+                file.is_file()
+                and not file.name.startswith(".")
+                and file.suffix.lower() in VIDEO_EXTENSIONS
+            ):
+                if db.get_video(file) is None:
+                    runtime = get_duration(file)
+
+                    if runtime is None:
+                        print(f"Could not get runtime for {file}")
+
+                    db.get_or_create_video(file, runtime=runtime)
+
+    # Remove records for files that no longer exist.
+    removed = db.remove_missing_files()
+    if removed:
+        print(f"Removed {removed} missing videos from database")
+
+    return creators_folders
+
+
 def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
     total = 0
     for folder in paths:
@@ -255,46 +303,56 @@ def run(
 ):
     print("Running video-duplicate...")
     print(f"Path: {input_path}")
-
     path = Path(input_path)
-    creators_folders = load_all_creators_folders(path)
 
-    # remove non-video
-    if remove_non_videos:
-        move_non_video_to_trash(creators_folders, trash_dir, simulate=simulate)
+    if database == "":
+        database_file = path / ".video-duplicate.db"
+        print(
+            f"No database file provided. A database will be created at {database_file}"
+        )
+    else:
+        database_file = Path(database)
 
-    # remove video under 'runtime' seconds
-    if not skip_runtime:
-        creators_folders = load_all_creators_folders(path)
-        progress = Progress(len(creators_folders))
-        for creator_path in creators_folders:
-            print(
-                f"Removing videos under {runtime}s from {creator_path.name} ({progress.get_str()}"
-            )
-            remove_video_under_Xs(
-                creator_path,
-                creator_path,
+    with DB(database_file) as db:
+        # Scan folders and synchronize videos with the database.
+        creators_folders = scan_and_sync_videos(path, db)
+
+        # Remove non-video files.
+        if remove_non_videos:
+            move_non_video_to_trash(
+                creators_folders,
                 trash_dir,
-                runtime=float(runtime),
                 simulate=simulate,
             )
-            progress.update()
 
-    if dup_qhash or dup_audio or dup_phash:
-        if database == "":
-            database_file = path / ".video-duplicate.db"
-            print(
-                f"No database file provided. A database will be created at {database_file}"
-            )
-        else:
-            database_file = Path(database)
-
-        creators_folders = load_all_creators_folders(path)
-        with DB(database_file) as db:
+        # Remove videos under the requested runtime.
+        if not skip_runtime:
             progress = Progress(len(creators_folders))
+
             for creator_path in creators_folders:
                 print(
-                    f"Analyzing duplicates in folder {creator_path} {progress.get_str()}"
+                    f"Removing videos under {runtime}s from "
+                    f"{creator_path.name} ({progress.get_str()}"
+                )
+
+                remove_video_under_Xs(
+                    creator_path,
+                    creator_path,
+                    trash_dir,
+                    runtime=float(runtime),
+                    simulate=simulate,
+                )
+
+                progress.update()
+
+        # Analyze duplicates.
+        if dup_qhash or dup_audio or dup_phash:
+            progress = Progress(len(creators_folders))
+
+            for creator_path in creators_folders:
+                print(
+                    f"Analyzing duplicates in folder "
+                    f"{creator_path} {progress.get_str()}"
                 )
                 print("Finding duplicates...", end="")
 
@@ -302,8 +360,10 @@ def run(
                 print(f" Found {len(duplicates)}")
 
                 dup_progress = Progress(len(duplicates))
+
                 for v1, v2 in duplicates:
                     print(f"{creator_path.name} progress: {dup_progress.get_str()}")
+
                     if not v1.exists() or not v2.exists():
                         dup_progress.update(total_add=-1)
                         continue
@@ -313,13 +373,11 @@ def run(
                     if dup_qhash:
                         if qhash(v1, v2, db, str(creator_path), trash_dir):
                             continue
+
                     if dup_audio:
                         if audio(v1, v2, db, str(creator_path), trash_dir):
                             continue
+
                     if dup_phash:
                         if phash(v1, v2, db, str(creator_path), trash_dir):
                             continue
-
-                progress.update()
-
-            db.remove_missing_files()
