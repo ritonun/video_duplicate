@@ -50,6 +50,7 @@ def load_all_creators_folders(path: Path) -> list[Path]:
 def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
     """Find creator folders containing videos and register videos in the DB."""
 
+    print("Scanning creators folders...")
     creators_folders = [
         folder
         for folder in path.iterdir()
@@ -72,6 +73,9 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
         creators_folders.append(path)
 
     # Register every discovered video in the database.
+    print("Registering all videos found into db...")
+    new_video_found = 0
+
     for folder in creators_folders:
         for file in folder.iterdir():
             if (
@@ -86,6 +90,11 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
                         print(f"Could not get runtime for {file}")
 
                     db.get_or_create_video(file, runtime=runtime)
+                    new_video_found += 1
+    if new_video_found == 0:
+        print("Ne new video found.")
+    else:
+        print(f"Found {new_video_found} new video.")
 
     # Remove records for files that no longer exist.
     removed = db.remove_missing_files()
