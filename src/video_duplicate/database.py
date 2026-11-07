@@ -70,6 +70,42 @@ class DB:
 
         return self._row_to_video(row)
 
+    def get_videos(self) -> list[Video]:
+        """Return all videos in the database."""
+
+        cursor = self.conn.execute("SELECT * FROM videos ORDER BY creator, name")
+
+        return [self._row_to_video(row) for row in cursor.fetchall()]
+
+    def get_videos_by_creator(self, creator: str) -> list[Video]:
+        """Return all videos belonging to a creator."""
+
+        cursor = self.conn.execute(
+            """
+            SELECT * FROM videos
+            WHERE creator = ?
+            ORDER BY name
+            """,
+            (creator,),
+        )
+
+        return [self._row_to_video(row) for row in cursor.fetchall()]
+
+    def get_videos_under_runtime(self, runtime: float) -> list[Video]:
+        """Return videos shorter than the requested runtime."""
+
+        cursor = self.conn.execute(
+            """
+            SELECT * FROM videos
+            WHERE runtime IS NOT NULL
+            AND runtime < ?
+            ORDER BY creator, name
+            """,
+            (runtime,),
+        )
+
+        return [self._row_to_video(row) for row in cursor.fetchall()]
+
     def get_or_create_video(
         self,
         path: str | Path,
