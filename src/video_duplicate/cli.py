@@ -369,14 +369,11 @@ def run(
                     if not v1.exists() or not v2.exists():
                         continue
 
-                    if dup_qhash:
-                        if qhash(v1, v2, db, str(creator_path), trash_dir):
-                            continue
+                    if dup_qhash and qhash(v1, v2, db, str(creator_path), trash_dir):
+                        continue
 
-                    if dup_audio:
-                        if audio(v1, v2, db, str(creator_path), trash_dir):
-                            continue
+                    if dup_audio and audio(v1, v2, db, str(creator_path), trash_dir):
+                        continue
 
-                    if dup_phash:
-                        if phash(v1, v2, db, str(creator_path), trash_dir):
-                            continue
+                    if dup_phash and phash(v1, v2, db, str(creator_path), trash_dir):
+                        continue
