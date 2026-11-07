@@ -120,20 +120,20 @@ def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
                     stage_file_to_trash(str(file), trash_dir)
 
 
-def qhash(v1: Video, v2: Video, db: DB, creator_path: str, trash_dir: str) -> bool:
+def qhash(v1: Video, v2: Video, db: DB, trash_dir: str) -> bool:
     size = 1024 * 1024
 
     video1 = db.get_or_create_video(v1.path)
     video2 = db.get_or_create_video(v2.path)
 
     if video1.qhash is None:
-        h1 = hash_first_mb_comparison(v1, size=size)
+        h1 = hash_first_mb_comparison(v1.path, size=size)
         db.update_video(v1.path, qhash=str(h1))
     else:
         h1 = video1.qhash
 
     if video2.qhash is None:
-        h2 = hash_first_mb_comparison(v2, size=size)
+        h2 = hash_first_mb_comparison(v2.path, size=size)
         db.update_video(v2.path, qhash=str(h2))
     else:
         h2 = video2.qhash
@@ -141,7 +141,7 @@ def qhash(v1: Video, v2: Video, db: DB, creator_path: str, trash_dir: str) -> bo
     if h1 == h2:
         # check if the first 1MB (size) has the same hash between the two videos
         worst_video = pick_worst_video(v1, v2)
-        stage_file_to_trash(str(worst_video), Path(creator_path).name, trash_dir)
+        stage_file_to_trash(str(worst_video), trash_dir=trash_dir)
         tqdm.write(f"HASHG: Moved to trash {worst_video}")
         return True
     return False
@@ -151,7 +151,6 @@ def audio(
     v1: Video,
     v2: Video,
     db: DB,
-    creator_path: str,
     trash_dir: str,
 ) -> bool:
     fingerprint_length = 60
@@ -214,8 +213,7 @@ def audio(
 
         stage_file_to_trash(
             str(worst_video),
-            Path(creator_path).name,
-            trash_dir,
+            trash_dir=trash_dir,
         )
 
         tqdm.write(f"AUDIO: Moved to trash {worst_video}")
@@ -228,7 +226,6 @@ def phash(
     v1: Video,
     v2: Video,
     db: DB,
-    creator_path: str,
     trash_dir: str,
 ) -> bool:
     temp_dir = trash_dir + "/.temp"
@@ -275,8 +272,7 @@ def phash(
 
         stage_file_to_trash(
             str(worst_video),
-            Path(creator_path).name,
-            trash_dir,
+            trash_dir=trash_dir,
         )
 
         tqdm.write(f"PHASH: Moved to trash {worst_video}")
