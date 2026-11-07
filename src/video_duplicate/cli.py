@@ -74,7 +74,9 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
 
     # Register every discovered video in the database.
     print("Registering all videos found into db...")
+
     new_video_found = 0
+    video_treated = 0
 
     for folder in creators_folders:
         for file in folder.iterdir():
@@ -91,8 +93,9 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
 
                     db.get_or_create_video(file, runtime=runtime)
                     new_video_found += 1
+                    print(f"{video_treated}/{new_video_found}", end="\r")
     if new_video_found == 0:
-        print("Ne new video found.")
+        print("No new video found.")
     else:
         print(f"Found {new_video_found} new video.")
 
