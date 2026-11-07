@@ -9,7 +9,6 @@ import typer
 
 from video_duplicate import (
     VIDEO_EXTENSIONS,
-    Cache,
     Progress,
     acoustic_compare_two_videos,
     acoustic_fingerprint,
