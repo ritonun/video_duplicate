@@ -85,10 +85,8 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
     ]
 
     new_video_found = 0
-    video_treated = 0
 
-    for file in videos:
-        video_treated += 1
+    for i, file in enumerate(videos):
         if db.get_video(file) is None:
             runtime = get_duration(file)
 
@@ -97,7 +95,7 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
 
             db.get_or_create_video(file, runtime=runtime)
             new_video_found += 1
-            print(f"{new_video_found} {video_treated}/{len(videos)}", end="\r")
+            print(f"{new_video_found} {i}/{len(videos)}", end="\r")
 
     if new_video_found == 0:
         print("No new video found.")
