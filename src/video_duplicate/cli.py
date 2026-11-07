@@ -127,21 +127,21 @@ def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
                     stage_file_to_trash(str(file), trash_dir)
 
 
-def qhash(v1: Path, v2: Path, db: DB, creator_path: str, trash_dir: str) -> bool:
+def qhash(v1: Video, v2: Video, db: DB, creator_path: str, trash_dir: str) -> bool:
     size = 1024 * 1024
 
-    video1 = db.get_or_create_video(v1)
-    video2 = db.get_or_create_video(v2)
+    video1 = db.get_or_create_video(v1.path)
+    video2 = db.get_or_create_video(v2.path)
 
     if video1.qhash is None:
         h1 = hash_first_mb_comparison(v1, size=size)
-        db.update_video(v1, qhash=str(h1))
+        db.update_video(v1.path, qhash=str(h1))
     else:
         h1 = video1.qhash
 
     if video2.qhash is None:
         h2 = hash_first_mb_comparison(v2, size=size)
-        db.update_video(v2, qhash=str(h2))
+        db.update_video(v2.path, qhash=str(h2))
     else:
         h2 = video2.qhash
 
@@ -155,34 +155,34 @@ def qhash(v1: Path, v2: Path, db: DB, creator_path: str, trash_dir: str) -> bool
 
 
 def audio(
-    v1: Path,
-    v2: Path,
+    v1: Video,
+    v2: Video,
     db: DB,
     creator_path: str,
     trash_dir: str,
 ) -> bool:
     fingerprint_length = 60
 
-    video1 = db.get_or_create_video(v1)
-    video2 = db.get_or_create_video(v2)
+    video1 = db.get_or_create_video(v1.path)
+    video2 = db.get_or_create_video(v2.path)
 
     # Get or calculate the first video's fingerprint.
     if video1.audio is not None and video1.audio_duration is not None:
         audio1 = (video1.audio_duration, video1.audio)
     else:
         audio1 = acoustic_fingerprint(
-            v1,
+            v1.path,
             fingerprint_length=fingerprint_length,
         )
 
         if audio1 is None:
-            tqdm.write(f"Error getting audio fingerprint of {v1}")
+            tqdm.write(f"Error getting audio fingerprint of {v1.name}")
             return False
 
         duration, fingerprint = audio1
 
         db.update_video(
-            v1,
+            v1.path,
             audio=fingerprint,
             audio_duration=duration,
         )
@@ -192,18 +192,18 @@ def audio(
         audio2 = (video2.audio_duration, video2.audio)
     else:
         audio2 = acoustic_fingerprint(
-            v2,
+            v2.path,
             fingerprint_length=fingerprint_length,
         )
 
         if audio2 is None:
-            tqdm.write(f"Error getting audio fingerprint of {v2}")
+            tqdm.write(f"Error getting audio fingerprint of {v2.name}")
             return False
 
         duration, fingerprint = audio2
 
         db.update_video(
-            v2,
+            v2.path,
             audio=fingerprint,
             audio_duration=duration,
         )
@@ -211,7 +211,9 @@ def audio(
     similarity = compare_acoustic_fingerprints(audio1, audio2)
 
     if isinstance(similarity, str):
-        tqdm.write(f"Error comparing audio between {v1} and {v2}: {similarity}")
+        tqdm.write(
+            f"Error comparing audio between {v1.name} and {v2.name}: {similarity}"
+        )
         return False
 
     if similarity > 0.8:
@@ -230,8 +232,8 @@ def audio(
 
 
 def phash(
-    v1: Path,
-    v2: Path,
+    v1: Video,
+    v2: Video,
     db: DB,
     creator_path: str,
     trash_dir: str,
@@ -240,43 +242,43 @@ def phash(
     frame_interval = 2
     tolerance = 4
 
-    video1 = db.get_or_create_video(v1)
-    video2 = db.get_or_create_video(v2)
+    video1 = db.get_or_create_video(v1.path)
+    video2 = db.get_or_create_video(v2.path)
 
     if video1.phash is None:
         p1 = get_video_phash(
-            v1,
+            v1.path,
             temp_dir,
             frame_interval=frame_interval,
         )
 
         if p1 is None:
-            tqdm.write(f"Failed to get phash of video {v1}")
+            tqdm.write(f"Failed to get phash of video {v1.name}")
             return False
 
         p1 = str(p1)
-        db.update_video(v1, phash=p1)
+        db.update_video(v1.path, phash=p1)
     else:
         p1 = video1.phash
 
     if video2.phash is None:
         p2 = get_video_phash(
-            v2,
+            v2.path,
             temp_dir,
             frame_interval=frame_interval,
         )
 
         if p2 is None:
-            tqdm.write(f"Failed to get phash of video {v2}")
+            tqdm.write(f"Failed to get phash of video {v2.name}")
             return False
 
         p2 = str(p2)
-        db.update_video(v2, phash=p2)
+        db.update_video(v2.path, phash=p2)
     else:
         p2 = video2.phash
 
     if are_videos_duplicates(p1, p2, tolerance=tolerance):
-        worst_video = pick_worst_video(v1, v2)
+        worst_video = pick_worst_video(v1.path, v2.path)
 
         stage_file_to_trash(
             str(worst_video),
@@ -376,17 +378,20 @@ def run(
                     unit="d",
                     leave=False,
                 ):
-                    v1 = Path(video1.path)
-                    v2 = Path(video2.path)
-
-                    if not v1.exists() or not v2.exists():
+                    if not Path(video1.path).exists() or not Path(video2.path).exists():
                         continue
 
-                    if dup_qhash and qhash(v1, v2, db, str(creator_path), trash_dir):
+                    if dup_qhash and qhash(
+                        video1, video2, db, str(creator_path), trash_dir
+                    ):
                         continue
 
-                    if dup_audio and audio(v1, v2, db, str(creator_path), trash_dir):
+                    if dup_audio and audio(
+                        video1, video2, db, str(creator_path), trash_dir
+                    ):
                         continue
 
-                    if dup_phash and phash(v1, v2, db, str(creator_path), trash_dir):
+                    if dup_phash and phash(
+                        video1, video2, db, str(creator_path), trash_dir
+                    ):
                         continue
