@@ -290,6 +290,27 @@ def phash(
     return False
 
 
+def remove_short_videos(db: DB, runtime: float, trash_dir: str, simulate: bool = False):
+    videos = db.get_videos_under_runtime(runtime)
+
+    for video in tqdm(
+        videos, desc=f"Removing videos under {runtime}s", unit="v", leave=False
+    ):
+        path = Path(video.path)
+        if not path.exists():
+            tqdm.write(f"DB sync problem: path {path} does not exist.")
+            continue
+
+        if simulate:
+            tqdm.write(f"SIMULATE - TRASHED {path}")
+            continue
+
+        stage_file_to_trash(str(path), video.creator, trash_dir)
+        tqdm.write(f"TRASHED {path}")
+
+        db.update_video(path, status=Status.DELETED)
+
+
 @app.command()
 def run(
     input_path: str,
@@ -337,35 +358,27 @@ def run(
 
         # Remove videos under the requested runtime.
         if not skip_runtime:
-            for creator_path in tqdm(
-                creators_folders, desc="remove non-video folders", unit="v"
-            ):
-                tqdm.write(
-                    f"Removing videos under {runtime}s from {creator_path.name} "
-                )
-
-                remove_video_under_Xs(
-                    creator_path,
-                    creator_path,
-                    trash_dir,
-                    runtime=float(runtime),
-                    simulate=simulate,
-                )
+            remove_short_videos(db, runtime, trash_dir, simulate=simulate)
 
         # Analyze duplicates.
         if dup_qhash or dup_audio or dup_phash:
             for creator_path in tqdm(
                 creators_folders, desc="creators progress", unit="c", leave=True
             ):
-                duplicates = load_probable_duplicate_single(creator_path)
+                duplicates = load_probable_duplicate_single(
+                    db.get_videos_by_creator(str(creator_path))
+                )
                 tqdm.write(f" Found {len(duplicates)} duplicates")
 
-                for v1, v2 in tqdm(
+                for video1, video2 in tqdm(
                     duplicates,
                     desc=f"{creator_path.name} progress",
                     unit="d",
                     leave=False,
                 ):
+                    v1 = Path(video1.path)
+                    v2 = Path(video2.path)
+
                     if not v1.exists() or not v2.exists():
                         continue
 

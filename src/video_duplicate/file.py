@@ -10,53 +10,48 @@ from pathlib import Path
 from tqdm import tqdm
 
 from .utils import get_duration
+from .database import Video
 
 
-def load_probable_duplicate(folders: list[Path], tolerance: float = 5.0):
-    """Find probable duplicate videos across multiple folders."""
+def load_probable_duplicate(
+    videos: list[Video],
+    tolerance: float = 5.0,
+) -> list[list[Video]]:
+    """Find probable duplicates between different creators."""
 
-    videos_by_folder = [load_videos_from_folder(folder) for folder in folders]
+    videos_by_creator: dict[str, list[Video]] = {}
 
-    durations = {
-        video: get_duration(video) for videos in videos_by_folder for video in videos
-    }
+    for video in videos:
+        videos_by_creator.setdefault(video.creator, []).append(video)
 
     duplicates = []
 
-    for videos1, videos2 in combinations(videos_by_folder, 2):
+    for videos1, videos2 in combinations(videos_by_creator.values(), 2):
         for video1 in videos1:
-            duration1 = durations[video1]
-
-            if duration1 is None:
-                continue
-
             for video2 in videos2:
-                duration2 = durations[video2]
-
-                if duration2 is None:
-                    continue
-
-                if abs(duration1 - duration2) <= tolerance:
+                if (
+                    video1.runtime is not None
+                    and video2.runtime is not None
+                    and abs(video1.runtime - video2.runtime) <= tolerance
+                ):
                     duplicates.append([video1, video2])
 
     return duplicates
 
 
 def load_probable_duplicate_single(
-    folder: Path, tolerance: float = 5.0
-) -> list[list[Path]]:
-    """Find probable duplicate videos within a folder."""
-
-    videos = load_videos_from_folder(folder)
-    durations = {video: get_duration(video) for video in videos}
+    videos: list[Video],
+    tolerance: float = 5.0,
+) -> list[list[Video]]:
+    """Find probable duplicates within a creator."""
 
     return [
         [video1, video2]
         for video1, video2 in combinations(videos, 2)
         if (
-            (duration1 := durations.get(video1)) is not None
-            and (duration2 := durations.get(video2)) is not None
-            and abs(duration1 - duration2) <= tolerance
+            video1.runtime is not None
+            and video2.runtime is not None
+            and abs(video1.runtime - video2.runtime) <= tolerance
         )
     ]
 
@@ -160,7 +155,6 @@ def stage_file_to_trash(
 
     # Move file to trash
     shutil.move(filepath, target_path)
-    print(f"[Trash] Staged: {filename} -> {target_path}")
 
     return target_path
 
