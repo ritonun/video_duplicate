@@ -79,21 +79,22 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
 
     new_video_found = 0
 
-    for i, file in enumerate(videos):
-        if db.get_video(file) is None:
-            runtime = get_duration(file)
+    for file in tqdm(videos, desc="Registering videos", unit="videos", leave=False):
+        if db.get_video(file) is not None:
+            continue
 
-            if runtime is None:
-                tqdm.write(f"Could not get runtime for {file}")
+        runtime = get_duration(file)
 
-            db.get_or_create_video(file, runtime=runtime)
-            new_video_found += 1
-            tqdm.write(f"{new_video_found} {i}/{len(videos)}", end="\r")
+        if runtime is None:
+            tqdm.write(f"Could not get runtime for {file}")
+
+        db.get_or_create_video(file, runtime=runtime)
+        new_video_found += 1
 
     if new_video_found == 0:
         tqdm.write("No new video found.")
     else:
-        tqdm.write(f"Found {new_video_found} new video.")
+        tqdm.write(f"Found {new_video_found} new video out of {len(videos)} videos.")
 
     # Remove records for files that no longer exist.
     removed = db.remove_missing_files()
