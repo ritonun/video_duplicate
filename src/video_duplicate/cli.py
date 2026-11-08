@@ -102,6 +102,33 @@ def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
                     stage_file_to_trash(str(file), trash_dir)
 
 
+def trash_video(video: Video, db: DB, trash_dir: str, simulate: bool = False):
+    """Move a video to trash and update its database status."""
+
+    path = Path(video.path)
+
+    if not path.exists():
+        tqdm.write(f"File not found: {path}")
+        return False
+
+    if simulate:
+        tqdm.write(f"SIMULATE - TRASHED {path}")
+        return True
+
+    trashed_path = stage_file_to_trash(
+        str(path),
+        trash_dir=trash_dir,
+    )
+
+    if not trashed_path:
+        return False
+
+    db.update_video(path, status=Status.DELETED)
+    tqdm.write(f"TRASHED {path}")
+
+    return True
+
+
 def qhash(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) -> bool:
     size = 1024 * 1024
 
@@ -125,16 +152,20 @@ def qhash(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) 
 
     if h1 == h2:
         # check if the first 1MB (size) has the same hash between the two videos
-        worst_video = pick_worst_video(v1.path, v2.path)
-        if worst_video is None:
+        worst_path = pick_worst_video(v1.path, v2.path)
+        if worst_path is None:
             tqdm.write(f"Failed to pick worst video between {v1.path} and {v2.path}")
             return False
-        if not simulate:
-            stage_file_to_trash(str(worst_video), trash_dir=trash_dir)
-            tqdm.write(f"HASHG: Moved to trash {worst_video}")
-            db.update_video(worst_video, status=Status.DELETED)
-        else:
-            tqdm.write(f"SIMULATE - HASHG: Moved to trash {worst_video}")
+        worst_video = db.get_video(worst_path)
+        if worst_video is None:
+            tqdm.write(
+                f"Failed to find worst video in DB {worst_path} -> {v1.path} and {v2.path}"
+            )
+            return False
+        if trash_video(worst_video, db, trash_dir, simulate=simulate):
+            tqdm.write(f"HASHG Duplicate removed: {worst_path}")
+            return True
+
         return True
     return False
 
@@ -199,22 +230,19 @@ def audio(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) 
         return False
 
     if similarity > 0.8:
-        worst_video = pick_worst_video(v1.path, v2.path)
-        if worst_video is None:
+        worst_path = pick_worst_video(v1.path, v2.path)
+        if worst_path is None:
             tqdm.write(f"Failed to pick worst video between {v1.path} and {v2.path}")
             return False
-
-        if not simulate:
-            stage_file_to_trash(
-                str(worst_video),
-                trash_dir=trash_dir,
+        worst_video = db.get_video(worst_path)
+        if worst_video is None:
+            tqdm.write(
+                f"Failed to find worst video in DB {worst_path} -> {v1.path} and {v2.path}"
             )
-
-            tqdm.write(f"AUDIO: Moved to trash {worst_video}")
-            db.update_video(worst_video, status=Status.DELETED)
-        else:
-            tqdm.write(f"SIMULATE - AUDIO: Moved to trash {worst_video}")
-        return True
+            return False
+        if trash_video(worst_video, db, trash_dir, simulate=simulate):
+            tqdm.write(f"AUDIO Duplicate removed: {worst_path}")
+            return True
 
     return False
 
@@ -263,22 +291,19 @@ def phash(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) 
         p2 = video2.phash
 
     if are_videos_duplicates(p1, p2, tolerance=tolerance):
-        worst_video = pick_worst_video(v1.path, v2.path)
-        if worst_video is None:
+        worst_path = pick_worst_video(v1.path, v2.path)
+        if worst_path is None:
             tqdm.write(f"Failed to pick worst video between {v1.path} and {v2.path}")
             return False
-
-        if not simulate:
-            stage_file_to_trash(
-                str(worst_video),
-                trash_dir=trash_dir,
+        worst_video = db.get_video(worst_path)
+        if worst_video is None:
+            tqdm.write(
+                f"Failed to find worst video in DB {worst_path} -> {v1.path} and {v2.path}"
             )
-
-            tqdm.write(f"PHASH: Moved to trash {worst_video}")
-            db.update_video(worst_video, status=Status.DELETED)
-        else:
-            tqdm.write(f"SIMULATE - PHASH: Moved to trash {worst_video}")
-        return True
+            return False
+        if trash_video(worst_video, db, trash_dir, simulate=simulate):
+            tqdm.write(f"AUDIO Duplicate removed: {worst_path}")
+            return True
 
     return False
 
