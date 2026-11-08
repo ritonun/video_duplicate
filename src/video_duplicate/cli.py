@@ -7,7 +7,10 @@ import typer
 from tqdm import tqdm
 
 from video_duplicate import (
+    DB,
     VIDEO_EXTENSIONS,
+    Status,
+    Video,
     acoustic_fingerprint,
     are_videos_duplicates,
     compare_acoustic_fingerprints,
@@ -15,11 +18,8 @@ from video_duplicate import (
     get_video_phash,
     hash_first_mb_comparison,
     load_probable_duplicate_single,
-    stage_file_to_trash,
     pick_worst_video,
-    DB,
-    Video,
-    Status,
+    stage_file_to_trash,
 )
 
 app = typer.Typer()
