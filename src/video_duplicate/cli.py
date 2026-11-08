@@ -25,21 +25,6 @@ from video_duplicate import (
 app = typer.Typer()
 
 
-def load_all_creators_folders(path: Path) -> list[Path]:
-    creators_folders = [
-        p for p in path.iterdir() if p.is_dir() and not p.name.startswith(".")
-    ]
-
-    # Include the root folder if it contains videos.
-    if any(
-        file.is_file() and file.suffix.lower() in VIDEO_EXTENSIONS
-        for file in path.iterdir()
-    ):
-        creators_folders.append(path)
-
-    return creators_folders
-
-
 def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
     """Find creator folders containing videos and register videos in the DB."""
 
@@ -105,10 +90,6 @@ def scan_and_sync_videos(path: Path, db: DB) -> list[Path]:
 
 
 def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
-    total = 0
-    for folder in paths:
-        for file in folder.iterdir():
-            total += 1
 
     for folder in tqdm(paths, desc="Folders progress", unit="f", leave=False):
         for file in folder.iterdir():
