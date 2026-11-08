@@ -302,7 +302,7 @@ def phash(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) 
             )
             return False
         if trash_video(worst_video, db, trash_dir, simulate=simulate):
-            tqdm.write(f"AUDIO Duplicate removed: {worst_path}")
+            tqdm.write(f"PHASH Duplicate removed: {worst_path}")
             return True
 
     return False
