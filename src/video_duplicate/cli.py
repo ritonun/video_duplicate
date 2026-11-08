@@ -123,8 +123,11 @@ def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
 def qhash(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) -> bool:
     size = 1024 * 1024
 
-    video1 = db.get_or_create_video(v1.path)
-    video2 = db.get_or_create_video(v2.path)
+    video1 = db.get_video(v1.path)
+    video2 = db.get_video(v2.path)
+    if video1 is None or video2 is None:
+        tqdm.write(f"DB issue ({v1.id}){v1.path} or ({v2.id}){v2.path} is None.")
+        return False
 
     if video1.qhash is None:
         h1 = hash_first_mb_comparison(v1.path, size=size)
@@ -157,8 +160,11 @@ def qhash(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) 
 def audio(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) -> bool:
     fingerprint_length = 60
 
-    video1 = db.get_or_create_video(v1.path)
-    video2 = db.get_or_create_video(v2.path)
+    video1 = db.get_video(v1.path)
+    video2 = db.get_video(v2.path)
+    if video1 is None or video2 is None:
+        tqdm.write(f"DB issue ({v1.id}){v1.path} or ({v2.id}){v2.path} is None.")
+        return False
 
     # Get or calculate the first video's fingerprint.
     if video1.audio is not None and video1.audio_duration is not None:
@@ -236,8 +242,11 @@ def phash(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) 
     frame_interval = 2
     tolerance = 4
 
-    video1 = db.get_or_create_video(v1.path)
-    video2 = db.get_or_create_video(v2.path)
+    video1 = db.get_video(v1.path)
+    video2 = db.get_video(v2.path)
+    if video1 is None or video2 is None:
+        tqdm.write(f"DB issue ({v1.id}){v1.path} or ({v2.id}){v2.path} is None.")
+        return False
 
     if video1.phash is None:
         p1 = get_video_phash(

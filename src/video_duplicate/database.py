@@ -84,9 +84,10 @@ class DB:
             """
             SELECT * FROM videos
             WHERE creator = ?
+            AND status != ?
             ORDER BY name
             """,
-            (creator,),
+            (creator, Status.DELETED.value),
         )
 
         return [self._row_to_video(row) for row in cursor.fetchall()]
