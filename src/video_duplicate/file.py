@@ -64,18 +64,13 @@ VIDEO_EXTENSIONS = {
 }
 
 
-def stage_file_to_trash(
-    filepath: str, base_dir: str = None, trash_dir: str = ".trash"
-) -> str:
+def stage_file_to_trash(filepath: str, trash_dir: str = ".trash") -> str:
     """
     Safely moves a rejected video file to a local trash staging area.
     Works on Debian/headless Linux without desktop environment trash dependencies.
     """
     # Expand ~ and make absolute
     filepath = os.path.abspath(os.path.expanduser(filepath))
-
-    if base_dir is not None:
-        base_dir = None
 
     if not os.path.exists(filepath):
         print(f"[!] File not found: {filepath}")

@@ -307,7 +307,7 @@ def remove_short_videos(db: DB, runtime: float, trash_dir: str, simulate: bool =
             tqdm.write(f"SIMULATE - TRASHED {path}")
             continue
 
-        stage_file_to_trash(str(path), video.creator, trash_dir)
+        stage_file_to_trash(str(path), trash_dir)
         tqdm.write(f"TRASHED {path}")
 
         db.update_video(path, status=Status.DELETED)
