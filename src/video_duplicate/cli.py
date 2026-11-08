@@ -141,8 +141,12 @@ def qhash(v1: Video, v2: Video, db: DB, trash_dir: str) -> bool:
     if h1 == h2:
         # check if the first 1MB (size) has the same hash between the two videos
         worst_video = pick_worst_video(v1.path, v2.path)
+        if worst_video is None:
+            tqdm.write(f"Failed to pick worst video between {v1.path} and {v2.path}")
+            return False
         stage_file_to_trash(str(worst_video), trash_dir=trash_dir)
         tqdm.write(f"HASHG: Moved to trash {worst_video}")
+        db.update_video(worst_video, status=Status.DELETED)
         return True
     return False
 
@@ -210,6 +214,9 @@ def audio(
 
     if similarity > 0.8:
         worst_video = pick_worst_video(v1.path, v2.path)
+        if worst_video is None:
+            tqdm.write(f"Failed to pick worst video between {v1.path} and {v2.path}")
+            return False
 
         stage_file_to_trash(
             str(worst_video),
@@ -217,6 +224,7 @@ def audio(
         )
 
         tqdm.write(f"AUDIO: Moved to trash {worst_video}")
+        db.update_video(worst_video, status=Status.DELETED)
         return True
 
     return False
@@ -269,6 +277,9 @@ def phash(
 
     if are_videos_duplicates(p1, p2, tolerance=tolerance):
         worst_video = pick_worst_video(v1.path, v2.path)
+        if worst_video is None:
+            tqdm.write(f"Failed to pick worst video between {v1.path} and {v2.path}")
+            return False
 
         stage_file_to_trash(
             str(worst_video),
@@ -276,6 +287,7 @@ def phash(
         )
 
         tqdm.write(f"PHASH: Moved to trash {worst_video}")
+        db.update_video(worst_video, status=Status.DELETED)
         return True
 
     return False
