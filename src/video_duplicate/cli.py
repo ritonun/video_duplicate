@@ -120,7 +120,7 @@ def move_non_video_to_trash(paths: list[Path], trash_dir: str, simulate=False):
                     stage_file_to_trash(str(file), trash_dir)
 
 
-def qhash(v1: Video, v2: Video, db: DB, trash_dir: str) -> bool:
+def qhash(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) -> bool:
     size = 1024 * 1024
 
     video1 = db.get_or_create_video(v1.path)
@@ -144,19 +144,17 @@ def qhash(v1: Video, v2: Video, db: DB, trash_dir: str) -> bool:
         if worst_video is None:
             tqdm.write(f"Failed to pick worst video between {v1.path} and {v2.path}")
             return False
-        stage_file_to_trash(str(worst_video), trash_dir=trash_dir)
-        tqdm.write(f"HASHG: Moved to trash {worst_video}")
-        db.update_video(worst_video, status=Status.DELETED)
+        if not simulate:
+            stage_file_to_trash(str(worst_video), trash_dir=trash_dir)
+            tqdm.write(f"HASHG: Moved to trash {worst_video}")
+            db.update_video(worst_video, status=Status.DELETED)
+        else:
+            tqdm.write(f"SIMULATE - HASHG: Moved to trash {worst_video}")
         return True
     return False
 
 
-def audio(
-    v1: Video,
-    v2: Video,
-    db: DB,
-    trash_dir: str,
-) -> bool:
+def audio(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) -> bool:
     fingerprint_length = 60
 
     video1 = db.get_or_create_video(v1.path)
@@ -218,24 +216,22 @@ def audio(
             tqdm.write(f"Failed to pick worst video between {v1.path} and {v2.path}")
             return False
 
-        stage_file_to_trash(
-            str(worst_video),
-            trash_dir=trash_dir,
-        )
+        if not simulate:
+            stage_file_to_trash(
+                str(worst_video),
+                trash_dir=trash_dir,
+            )
 
-        tqdm.write(f"AUDIO: Moved to trash {worst_video}")
-        db.update_video(worst_video, status=Status.DELETED)
+            tqdm.write(f"AUDIO: Moved to trash {worst_video}")
+            db.update_video(worst_video, status=Status.DELETED)
+        else:
+            tqdm.write(f"SIMULATE - AUDIO: Moved to trash {worst_video}")
         return True
 
     return False
 
 
-def phash(
-    v1: Video,
-    v2: Video,
-    db: DB,
-    trash_dir: str,
-) -> bool:
+def phash(v1: Video, v2: Video, db: DB, trash_dir: str, simulate: bool = False) -> bool:
     temp_dir = trash_dir + "/.temp"
     frame_interval = 2
     tolerance = 4
@@ -281,13 +277,16 @@ def phash(
             tqdm.write(f"Failed to pick worst video between {v1.path} and {v2.path}")
             return False
 
-        stage_file_to_trash(
-            str(worst_video),
-            trash_dir=trash_dir,
-        )
+        if not simulate:
+            stage_file_to_trash(
+                str(worst_video),
+                trash_dir=trash_dir,
+            )
 
-        tqdm.write(f"PHASH: Moved to trash {worst_video}")
-        db.update_video(worst_video, status=Status.DELETED)
+            tqdm.write(f"PHASH: Moved to trash {worst_video}")
+            db.update_video(worst_video, status=Status.DELETED)
+        else:
+            tqdm.write(f"SIMULATE - PHASH: Moved to trash {worst_video}")
         return True
 
     return False
@@ -388,11 +387,17 @@ def run(
                 if not Path(video1.path).exists() or not Path(video2.path).exists():
                     continue
 
-                if dup_qhash and qhash(video1, video2, db, trash_dir):
+                if dup_qhash and qhash(
+                    video1, video2, db, trash_dir, simulate=simulate
+                ):
                     continue
 
-                if dup_audio and audio(video1, video2, db, trash_dir):
+                if dup_audio and audio(
+                    video1, video2, db, trash_dir, simulate=simulate
+                ):
                     continue
 
-                if dup_phash and phash(video1, video2, db, trash_dir):
+                if dup_phash and phash(
+                    video1, video2, db, trash_dir, simulate=simulate
+                ):
                     continue
